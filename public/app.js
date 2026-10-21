@@ -206,7 +206,8 @@ function renderToday() {
     const s = a?.status ?? "open";
     return `<span class="pill ${s}">${{ yes: "👍 " + t("statusYes"), no: "👎 " + t("statusNo"), away: "✈️ " + t("statusAway"), open: t("statusOpen") }[s]}</span>`;
   };
-  const members = st.members.map((m) => `<li><span>${esc(m.name)}${m.id === me.id ? ` <span class="muted small">(${t("you")})</span>` : ""}</span>${pill(m.attendance)}</li>`).join("");
+  const sorted = [...st.members].sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }));
+  const members = sorted.map((m) => `<li><span>${esc(m.name)}${m.id === me.id ? ` <span class="muted small">(${t("you")})</span>` : ""}</span>${pill(m.attendance)}</li>`).join("");
 
   $("#view-today").innerHTML = `
     ${stamp}
@@ -357,7 +358,7 @@ function renderMore() {
   }));
 }
 
-const adminList = (list) => ({ members: list.map((m) => ({ ...m, link: linkFor(m.token) })) });
+const adminList = (list) => ({ members: [...list].sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" })).map((m) => ({ ...m, link: linkFor(m.token) })) });
 async function loadAdmin() {
   try { S.admin = adminList(await rpc("api_admin_members")); render(); } catch (e) { toast(`${t("error")}: ${e.message}`); }
 }
