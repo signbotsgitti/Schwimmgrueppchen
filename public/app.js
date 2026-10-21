@@ -300,14 +300,14 @@ function renderToday() {
   const choice = blocked
     ? `<p class="warn">${t("notOnIsland")}</p>
        <div class="choice" style="grid-template-columns:1fr 1fr">
-         <button class="btn ${mine === "away" ? "selected" : ""}" data-att="away">✈️ ${t("away")}</button>
-         <button class="btn no ${mine === "no" ? "selected" : ""}" data-att="no">${t("no")}</button>
+         <button class="btn stack ${mine === "away" ? "selected" : ""}" data-att="away"><span class="ico">✈️</span><span>${t("away")}</span></button>
+         <button class="btn no stack ${mine === "no" ? "selected" : ""}" data-att="no"><span class="ico">👎</span><span>${t("no")}</span></button>
        </div>
        <div class="row" style="margin-top:8px"><input type="text" id="away-msg" placeholder="${t("msgToGroup")}" maxlength="500"><button class="btn sm" id="away-send">${t("send")}</button></div>`
     : `<div class="choice">
-         <button class="btn yes ${mine === "yes" ? "selected" : ""}" data-att="yes">👍 ${t("yes")}</button>
-         <button class="btn no ${mine === "no" ? "selected" : ""}" data-att="no">👎 ${t("no")}</button>
-         <button class="btn ${mine === "open" ? "selected" : ""}" data-att="open">🤷 ${t("open")}</button>
+         <button class="btn yes stack ${mine === "yes" ? "selected" : ""}" data-att="yes"><span class="ico">👍</span><span>${t("yes")}</span></button>
+         <button class="btn no stack ${mine === "no" ? "selected" : ""}" data-att="no"><span class="ico">👎</span><span>${t("no")}</span></button>
+         <button class="btn stack ${mine === "open" ? "selected" : ""}" data-att="open"><span class="ico">🤷</span><span>${t("open")}</span></button>
        </div>`;
 
   const pill = (a) => {
