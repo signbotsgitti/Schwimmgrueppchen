@@ -8,7 +8,7 @@ export const STRINGS = {
     invalidLink: "Dieser Link ist ungültig. Bitte einen neuen persönlichen Link anfordern.",
     noToken: "Bitte die App über deinen persönlichen Link öffnen.",
     meetAt: "Treffpunkt", at: "um", proposedBy: "Vorschlag von", changeTime: "Uhrzeit ändern", newTime: "Neue Uhrzeit (HH:MM)", changeBay: "Bucht ändern",
-    youToday: "Kommst du heute?", yes: "Ich komme", no: "komme nicht", open: "Überraschungsgast", away: "Nicht auf der Insel",
+    youToday: "Kommst du heute?", yes: "Ich komme", no: "komme nicht", open: "Überraschungs\u00ADgast", away: "Nicht auf der Insel",
     notOnIsland: "Du bist gerade nicht auf Menorca – Zusage ist gesperrt.", msgToGroup: "Nachricht an die Gruppe",
     who: "Wer kommt?", statusYes: "kommt", statusNo: "kommt nicht", statusAway: "nicht auf der Insel", statusOpen: "offen",
     ampel: "Wind-/Quallen-Ampel", recommended: "Empfehlung", recommendedText: "Vorschlag für heute: {bay}", noDecision: "(Die Gruppe entscheidet.)",
