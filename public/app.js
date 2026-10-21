@@ -167,8 +167,17 @@ function render() {
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${S.view}`));
   if (S.fatal) {
     const msg = S.fatal === "inactive" ? "Zugang deaktiviert / access deactivated" : S.fatal === "server" ? `${t("serverError")}\n${S.fatalDetail}` : t(S.fatal);
-    $("#view-today").innerHTML = `<div class="error" style="white-space:pre-wrap">${esc(msg)}</div><p class="center"><button class="btn" id="retry">${t("retry")}</button></p>`;
+    const paste = S.fatal === "noToken" || S.fatal === "invalidLink"
+      ? `<div class="card"><h2>${t("pasteTitle")}</h2><p class="small muted">${t("pasteHint")}</p>
+         <div class="row"><input type="text" id="paste-link" placeholder="https://…/?u=…" autocapitalize="off" autocorrect="off"><button class="btn primary" id="paste-go">OK</button></div></div>` : "";
+    $("#view-today").innerHTML = `<div class="error" style="white-space:pre-wrap">${esc(msg)}</div>${paste}<p class="center"><button class="btn" id="retry">${t("retry")}</button></p>`;
     $("#retry")?.addEventListener("click", () => { S.fatal = null; render(); refreshState(); });
+    $("#paste-go")?.addEventListener("click", () => {
+      const m = $("#paste-link").value.match(/([a-f0-9]{32})/i);
+      if (!m) { toast(t("invalidLink")); return; }
+      LS.set("token", m[1].toLowerCase());
+      location.replace(baseUrl() + "?u=" + m[1].toLowerCase());
+    });
     $("#view-board").innerHTML = ""; $("#view-more").innerHTML = renderLangCard();
     return;
   }
