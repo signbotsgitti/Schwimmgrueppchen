@@ -42,7 +42,7 @@ button { font: inherit; }
 .choice { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .choice > * { min-width: 0; }
 .btn.stack { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 4px; line-height: 1.2; font-size: .9rem; min-height: 76px; }
-.btn.stack span:last-child { overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; text-align: center; }
+.btn.stack span:last-child { overflow-wrap: break-word; hyphens: manual; -webkit-hyphens: manual; text-align: center; font-size: .84rem; }
 .btn.stack .ico { font-size: 1.6rem; line-height: 1; }
 .meet { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
 .pickers { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; }
