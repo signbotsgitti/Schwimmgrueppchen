@@ -36,7 +36,9 @@ let t = makeT(S.lang);
 async function rpc(fn, params = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    // Neues Key-Format sb_publishable_… nur als apikey; altes JWT-Format zusätzlich als Bearer
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY,
+      ...(SUPABASE_ANON_KEY.startsWith("eyJ") ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } : {}) },
     body: JSON.stringify({ p_token: token ?? "", ...params }),
   });
   const data = await res.json().catch(() => ({}));
