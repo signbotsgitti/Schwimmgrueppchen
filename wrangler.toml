@@ -1,0 +1,10 @@
+# Cloudflare Pages + Functions + D1
+name = "schwimmgrueppchen"
+pages_build_output_dir = "public"
+compatibility_date = "2025-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "schwimmgrueppchen"
+# Nach `wrangler d1 create schwimmgrueppchen` die ausgegebene database_id hier eintragen:
+database_id = "00000000-0000-0000-0000-000000000000"
