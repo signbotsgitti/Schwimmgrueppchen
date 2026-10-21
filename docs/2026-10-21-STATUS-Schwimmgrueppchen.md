@@ -14,7 +14,8 @@
 - Tagesdaten pro Datum (Europe/Madrid in SQL) → automatischer Reset 00:00
 - Wetter: Browser holt Open-Meteo Forecast (past_days=3) + Marine für alle Buchten in je einem Request, Auswertung in `public/lib/weather.js`
 - Ampellogik in `public/lib/ampel.js` (rein, 21 Tests), Konfiguration in `public/lib/config.js`
-- Standard-Treffzeit/-Bucht nur im Client; DB speichert nur Abweichungen
+- Standard-Treffzeit/-Bucht nur im Client; DB speichert nur Abweichungen (`day_settings`: Uhrzeit und Bucht je mit Vorschlagendem)
+- Eingaben: Bucht per Auswahlliste, Uhrzeit per nativem Zeitfeld (iOS-Rad); während ein Feld aktiv ist, wird nicht neu gerendert
 - Quallenmeldung überlagert die Berechnung (mind. rot); Empfehlung = niedrigste Stufe, Gleichstand → Reihenfolge in `BAYS`
 - Geolokation nur im Client; außerhalb der Bounding-Box ist „Ich komme“ gesperrt
 - Ungelesene Pinnwand-Nachrichten: Badging API + Zähler am Tab
@@ -30,7 +31,8 @@
 
 ## Offene Punkte
 - [x] Supabase-Projekt, Schema, Seed, Key/URL, GitHub Pages: erledigt am 2026-10-21
-- [ ] `supabase/2026-10-21-update-franzoesisch.sql` im SQL-Editor ausführen (fr zulassen, Marie Solange auf fr)
+- [x] `supabase/2026-10-21-update-franzoesisch.sql` ausgeführt (fr zulassen, Marie Solange auf fr)
+- [ ] `supabase/2026-10-21-update-bucht.sql` im SQL-Editor ausführen (Bucht pro Tag wählbar)
 - [ ] Windsektoren mit Karte verifizieren, besonders Cala Mesquida (evtl. 330–90°) und Son Bou (120–240°)
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
 - [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h) mit Erfahrung abgleichen
@@ -39,7 +41,7 @@
 ## Pfade
 - Frontend: `public/index.html`, `public/app.js`, `public/i18n.js`, `public/styles.css`, `public/sw.js`, `public/manifest.webmanifest`, `public/supabase-config.js`
 - Logik/Konfig: `public/lib/config.js`, `public/lib/ampel.js`, `public/lib/weather.js`, `public/lib/time.js`
-- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`
+- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`
 - Skripte: `scripts/seed.mjs`, `scripts/dev-server.mjs`, `scripts/make-icons.mjs`, `scripts/weather-mock.mjs`
 - Tests: `test/ampel.test.mjs`, `test/api.test.mjs`, `test/_pg.mjs`
 - CI/Deploy: `.github/workflows/pages.yml`

@@ -119,6 +119,7 @@ function systemText(text) {
   if ((m = text.match(/^⏰ (.+): (\d\d:\d\d)$/))) return t("sysTime", { name: m[1], time: m[2] });
   if ((m = text.match(/^🪼 (.+?): (.+)$/))) return t("sysJelly", { name: m[1], bay: bayName(m[2]) });
   if ((m = text.match(/^👋 (.+?) → (.+)$/))) return t("sysInvite", { name: m[1], who: m[2] });
+  if ((m = text.match(/^📍 (.+?): (.+)$/))) return t("sysBay", { name: m[1], bay: bayName(m[2]) });
   return text;
 }
 
@@ -160,7 +161,11 @@ function requestLocation() {
 }
 
 // ---------- Rendering ----------
+let renderPending = false;
+document.addEventListener("focusout", () => { if (renderPending) { renderPending = false; setTimeout(render, 50); } });
 function render() {
+  const ae = document.activeElement;
+  if (ae && ["INPUT", "SELECT", "TEXTAREA"].includes(ae.tagName) && document.body.contains(ae)) { renderPending = true; return; }
   $("#me-name").textContent = S.state?.me?.name ?? "";
   const net = $("#net"); net.hidden = !S.offline; net.textContent = t("offline");
   document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === S.view));
@@ -195,7 +200,8 @@ function renderToday() {
   const st = S.state, me = st.me;
   const mine = st.members.find((m) => m.id === me.id)?.attendance?.status ?? "open";
   const blocked = S.onIsland === false;
-  const meetBay = bayName(DEFAULT_BAY);
+  const meetBayId = st.meet.bay ?? DEFAULT_BAY;
+  const meetBay = bayName(meetBayId);
   const meetTime = st.meet.time ?? DEFAULT_MEET_TIME;
   const stamp = S.offline && S.stateAt ? `<p class="warn small">${t("offline")}: ${fmtDateTime(S.stateAt)}</p>` : "";
 
@@ -223,11 +229,17 @@ function renderToday() {
     ${stamp}
     <div class="card">
       <h2>${t("meetAt")}</h2>
-      <div class="row spread">
-        <div class="meet">${esc(meetBay)} · ${esc(meetTime)}</div>
-        <button class="btn sm" id="change-time">⏰ ${t("changeTime")}</button>
+      <div class="meet">${esc(meetBay)} · ${esc(meetTime)}</div>
+      <div class="pickers">
+        <label class="picker">📍 <select id="meet-bay" aria-label="${t("changeBay")}">
+          ${BAYS.map((b) => `<option value="${b.id}" ${b.id === meetBayId ? "selected" : ""}>${esc(b.name)}</option>`).join("")}
+        </select></label>
+        <label class="picker">⏰ <input type="time" id="meet-time" value="${esc(meetTime)}" step="300" aria-label="${t("changeTime")}"></label>
       </div>
-      ${st.meet.proposedBy ? `<p class="muted small">${t("proposedBy")} ${esc(st.meet.proposedBy)}</p>` : ""}
+      ${st.meet.bayBy || st.meet.proposedBy ? `<p class="muted small">${[
+        st.meet.bayBy ? `${esc(meetBay)}: ${t("proposedBy")} ${esc(st.meet.bayBy)}` : "",
+        st.meet.proposedBy ? `${esc(meetTime)}: ${t("proposedBy")} ${esc(st.meet.proposedBy)}` : "",
+      ].filter(Boolean).join(" · ")}</p>` : ""}
     </div>
     <div class="card">
       <h2>${t("youToday")}</h2>
@@ -240,10 +252,15 @@ function renderToday() {
     ${renderWeather()}`;
 
   $("#view-today").querySelectorAll("[data-att]").forEach((b) => b.addEventListener("click", () => act("api_attendance", { p_status: b.dataset.att })));
-  $("#change-time")?.addEventListener("click", async () => {
-    const v = prompt(t("newTime"), meetTime);
-    if (v && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.trim())) await act("api_time", { p_time: v.trim() });
-    else if (v) toast("HH:MM");
+  $("#meet-time")?.addEventListener("change", async (ev) => {
+    const v = ev.target.value;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v) || v === meetTime) return;
+    ev.target.blur(); await act("api_time", { p_time: v }); toast(`⏰ ${v}`);
+  });
+  $("#meet-bay")?.addEventListener("change", async (ev) => {
+    const v = ev.target.value;
+    if (v === meetBayId) return;
+    ev.target.blur(); await act("api_bay", { p_bay: v }); toast(`📍 ${bayName(v)}`);
   });
   $("#away-send")?.addEventListener("click", async () => {
     const inp = $("#away-msg"); const text = inp.value.trim(); if (!text) return;

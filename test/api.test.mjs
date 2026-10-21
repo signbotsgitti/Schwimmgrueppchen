@@ -33,7 +33,7 @@ test("state: Grundstruktur", async () => {
   assert.match(s.day, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(s.me.name, "Kai"); assert.equal(s.me.isAdmin, true);
   assert.equal(s.members.length, 2); assert.equal(s.members[0].attendance, null);
-  assert.equal(s.meet.time, null); assert.deepEqual(s.messages, []); assert.deepEqual(s.jelly, {});
+  assert.equal(s.meet.time, null); assert.equal(s.meet.bay, null); assert.deepEqual(s.messages, []); assert.deepEqual(s.jelly, {});
 });
 
 test("attendance: yes/away/open, Validierung", async () => {
@@ -51,6 +51,19 @@ test("time: Vorschlag mit Name + Systemnachricht, Validierung", async () => {
   assert.equal(s.meet.time, "17:00"); assert.equal(s.meet.proposedBy, "Monika");
   assert.equal(s.messages.at(-1).kind, "system"); assert.equal(s.messages.at(-1).text, "⏰ Monika: 17:00");
   await fails(rpc(db, "api_time", { p_token: M, p_time: "25:00" }), 400, /HH:MM/);
+});
+
+test("bay: Bucht für heute vorschlagen, Uhrzeit bleibt erhalten, Validierung, Update-Skript läuft", async () => {
+  let s = await rpc(db, "api_bay", { p_token: K, p_bay: "sonbou" });
+  assert.equal(s.meet.bay, "sonbou"); assert.equal(s.meet.bayBy, "Kai");
+  assert.equal(s.meet.time, "17:00"); assert.equal(s.meet.proposedBy, "Monika");
+  assert.equal(s.messages.at(-1).text, "📍 Kai: sonbou");
+  s = await rpc(db, "api_time", { p_token: K, p_time: "16:45" });
+  assert.equal(s.meet.bay, "sonbou"); assert.equal(s.meet.time, "16:45"); assert.equal(s.meet.proposedBy, "Kai");
+  await fails(rpc(db, "api_bay", { p_token: K, p_bay: "Cala X!" }), 400);
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-bucht.sql", import.meta.url), "utf8"));
+  assert.equal((await rpc(db, "api_state", { p_token: K })).meet.bay, "sonbou");
 });
 
 test("message: speichert bereinigt, leere Nachricht abgelehnt", async () => {
