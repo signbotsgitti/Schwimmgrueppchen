@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inSector, isOnshore, levelForRun, computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "../src/ampel.js";
-import { evaluate } from "../src/weather.js";
-import { AMPEL, BAYS } from "../src/config.js";
+import { inSector, isOnshore, levelForRun, computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "../public/lib/ampel.js";
+import { evaluate } from "../public/lib/weather.js";
+import { AMPEL, BAYS } from "../public/lib/config.js";
 
 const S = { from: 135, to: 225 }; // Binisafúa (Süden)
 const on = (n, speed = 20, dir = 180) => Array.from({ length: n }, (_, i) => ({ time: `t${i}`, speed, dir }));

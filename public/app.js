@@ -1,5 +1,8 @@
-// Schwimmgrüppchen – Frontend (ohne Framework, ES-Module)
+// Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
 import { STRINGS, makeT } from "./i18n.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js";
+import { loadWeather } from "./lib/weather.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -29,17 +32,21 @@ const S = {
 };
 let t = makeT(S.lang);
 
-// ---------- API ----------
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    ...opts,
-    headers: { "Content-Type": "application/json", "X-Token": token ?? "", ...(opts.headers ?? {}) },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
+// ---------- API (Supabase PostgREST RPC) ----------
+async function rpc(fn, params = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    // Neues Key-Format sb_publishable_… nur als apikey; altes JWT-Format zusätzlich als Bearer
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY,
+      ...(SUPABASE_ANON_KEY.startsWith("eyJ") ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } : {}) },
+    body: JSON.stringify({ p_token: token ?? "", ...params }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error(data.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
+  if (!res.ok) { const e = new Error(data.message || data.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
   return data;
 }
+const baseUrl = () => location.origin + location.pathname.replace(/[^/]*$/, "");
+const linkFor = (tok) => `${baseUrl()}?u=${tok}`;
 
 function setState(state) {
   S.state = state; S.stateAt = Date.now();
@@ -52,7 +59,7 @@ function setState(state) {
 async function refreshState() {
   if (!token) { S.fatal = "noToken"; render(); return; }
   try {
-    setState(await api("/api/state"));
+    setState(await rpc("api_state"));
     S.fatal = null;
   } catch (e) {
     if (e.status === 401) S.fatal = "invalidLink";
@@ -64,18 +71,18 @@ async function refreshState() {
 
 async function refreshWeather(force = false) {
   if (!token || S.fatal) return;
-  if (!force && S.weatherAt && Date.now() - S.weatherAt < 10 * 60 * 1000) return;
+  if (!force && S.weatherAt && Date.now() - S.weatherAt < WEATHER_REFRESH_MINUTES * 60 * 1000) return;
   try {
-    const w = await api("/api/weather");
-    if (!w.error) { S.weather = w; S.weatherAt = Date.now(); LS.set("cache:weather", w); LS.set("cache:weatherAt", S.weatherAt); }
+    const w = await loadWeather(S.state?.jelly ?? {});
+    S.weather = w; S.weatherAt = Date.now(); LS.set("cache:weather", w); LS.set("cache:weatherAt", S.weatherAt);
   } catch { /* alter Stand bleibt */ }
   render();
 }
 
-async function act(path, body) {
+async function act(fn, params) {
   try {
-    const data = await api(path, { method: "POST", body });
-    if (data.members) setState(data);
+    const data = await rpc(fn, params);
+    if (data && data.members) setState(data);
     render();
     return data;
   } catch (e) {
@@ -89,7 +96,7 @@ function setLang(lang, persist = true) {
   S.lang = lang; t = makeT(lang); LS.set("lang", lang);
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t(el.dataset.t); });
-  if (persist && token) api("/api/me", { method: "POST", body: { lang } }).catch(() => {});
+  if (persist && token) rpc("api_me", { p_lang: lang }).catch(() => {});
 }
 
 // ---------- Helfer ----------
@@ -100,13 +107,13 @@ const compass = (deg) => t("compass")[Math.round((((deg % 360) + 360) % 360) / 4
 let toastTimer;
 function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 2500); }
 async function copy(text) { try { await navigator.clipboard.writeText(text); toast(t("inviteCopied")); } catch { prompt("Link", text); } }
-const bayName = (id) => S.state?.bays?.find((b) => b.id === id)?.name ?? S.weather?.bays?.[id]?.name ?? id;
+const bayName = (id) => BAYS.find((b) => b.id === id)?.name ?? id;
 
 function systemText(text) {
   // Systemnachrichten werden kompakt gespeichert und hier übersetzt
   let m;
   if ((m = text.match(/^⏰ (.+): (\d\d:\d\d)$/))) return t("sysTime", { name: m[1], time: m[2] });
-  if ((m = text.match(/^🪼 (.+?): (.+)$/))) return t("sysJelly", { name: m[1], bay: m[2] });
+  if ((m = text.match(/^🪼 (.+?): (.+)$/))) return t("sysJelly", { name: m[1], bay: bayName(m[2]) });
   if ((m = text.match(/^👋 (.+?) → (.+)$/))) return t("sysInvite", { name: m[1], who: m[2] });
   return text;
 }
@@ -138,7 +145,7 @@ function requestLocation() {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      const b = S.state?.island ?? { latMin: 39.79, latMax: 40.10, lonMin: 3.78, lonMax: 4.33 };
+      const b = ISLAND_BOUNDS;
       const { latitude: la, longitude: lo } = pos.coords;
       S.onIsland = la >= b.latMin && la <= b.latMax && lo >= b.lonMin && lo <= b.lonMax;
       render();
@@ -168,7 +175,8 @@ function renderToday() {
   const st = S.state, me = st.me;
   const mine = st.members.find((m) => m.id === me.id)?.attendance?.status ?? "open";
   const blocked = S.onIsland === false;
-  const meetBay = bayName(st.meet.bay);
+  const meetBay = bayName(DEFAULT_BAY);
+  const meetTime = st.meet.time ?? DEFAULT_MEET_TIME;
   const stamp = S.offline && S.stateAt ? `<p class="warn small">${t("offline")}: ${fmtDateTime(S.stateAt)}</p>` : "";
 
   const choice = blocked
@@ -195,7 +203,7 @@ function renderToday() {
     <div class="card">
       <h2>${t("meetAt")}</h2>
       <div class="row spread">
-        <div class="meet">${esc(meetBay)} · ${esc(st.meet.time)}</div>
+        <div class="meet">${esc(meetBay)} · ${esc(meetTime)}</div>
         <button class="btn sm" id="change-time">⏰ ${t("changeTime")}</button>
       </div>
       ${st.meet.proposedBy ? `<p class="muted small">${t("proposedBy")} ${esc(st.meet.proposedBy)}</p>` : ""}
@@ -210,19 +218,19 @@ function renderToday() {
     </div>
     ${renderWeather()}`;
 
-  $("#view-today").querySelectorAll("[data-att]").forEach((b) => b.addEventListener("click", () => act("/api/attendance", { status: b.dataset.att })));
+  $("#view-today").querySelectorAll("[data-att]").forEach((b) => b.addEventListener("click", () => act("api_attendance", { p_status: b.dataset.att })));
   $("#change-time")?.addEventListener("click", async () => {
-    const v = prompt(t("newTime"), st.meet.time);
-    if (v && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.trim())) await act("/api/time", { time: v.trim() });
+    const v = prompt(t("newTime"), meetTime);
+    if (v && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.trim())) await act("api_time", { p_time: v.trim() });
     else if (v) toast("HH:MM");
   });
   $("#away-send")?.addEventListener("click", async () => {
     const inp = $("#away-msg"); const text = inp.value.trim(); if (!text) return;
-    await act("/api/messages", { text: `✈️ ${text}` }); inp.value = ""; toast("✓");
+    await act("api_message", { p_text: `✈️ ${text}` }); inp.value = ""; toast("✓");
   });
   $("#view-today").querySelectorAll("[data-jelly]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.jelly;
-    if (confirm(t("jellyConfirm", { bay: bayName(id) }))) { await act("/api/jelly", { bay: id }); refreshWeather(true); }
+    if (confirm(t("jellyConfirm", { bay: bayName(id) }))) { await act("api_jelly", { p_bay: id }); refreshWeather(true); }
   }));
 }
 
@@ -274,7 +282,7 @@ function renderBoard() {
     <div class="composer"><textarea id="msg-text" rows="1" placeholder="${t("writeMessage")}" maxlength="1000"></textarea><button class="btn primary" id="msg-send">${t("send")}</button></div>`;
   $("#msg-send").addEventListener("click", async () => {
     const ta = $("#msg-text"); const text = ta.value.trim(); if (!text) return;
-    await act("/api/messages", { text }); ta.value = ""; markSeen();
+    await act("api_message", { p_text: text }); ta.value = ""; markSeen();
     $("#view-board").scrollIntoView({ block: "end" });
   });
   if (S.view === "board") markSeen();
@@ -321,7 +329,7 @@ function renderMore() {
   $("#inv-create").addEventListener("click", async () => {
     const name = $("#inv-name").value.trim(); const lang = $("#inv-lang").value;
     if (name.length < 2) return;
-    const r = await act("/api/invite", { name, lang }); S.invite = r; S.admin = null; refreshState();
+    const r = await act("api_invite", { p_name: name, p_lang: lang }); S.invite = { ...r, link: linkFor(r.token) }; S.admin = null; refreshState();
   });
   $("#inv-share")?.addEventListener("click", async () => {
     const text = `${makeT(S.invite.lang)("shareText", { name: S.invite.name })} ${S.invite.link}`;
@@ -332,15 +340,16 @@ function renderMore() {
   $("#view-more").querySelectorAll("[data-adm]").forEach((b) => b.addEventListener("click", async () => {
     const id = Number(b.dataset.id), m = S.admin.members.find((x) => x.id === id), action = b.dataset.adm;
     if (action === "copy") return copy(m.link);
-    const body = { id, action };
-    if (action === "rename") { const name = prompt(t("rename"), m.name); if (!name || name.trim().length < 2) return; body.name = name.trim(); }
+    const params = { p_id: id, p_action: action, p_name: null };
+    if (action === "rename") { const name = prompt(t("rename"), m.name); if (!name || name.trim().length < 2) return; params.p_name = name.trim(); }
     if (action === "regenerate" && !confirm(t("regenerateConfirm", { name: m.name }))) return;
-    try { S.admin = await api("/api/admin/members", { method: "POST", body }); render(); refreshState(); } catch (e) { toast(`${t("error")}: ${e.message}`); }
+    try { S.admin = adminList(await rpc("api_admin_action", params)); render(); refreshState(); } catch (e) { toast(`${t("error")}: ${e.message}`); }
   }));
 }
 
+const adminList = (list) => ({ members: list.map((m) => ({ ...m, link: linkFor(m.token) })) });
 async function loadAdmin() {
-  try { S.admin = await api("/api/admin/members"); render(); } catch (e) { toast(`${t("error")}: ${e.message}`); }
+  try { S.admin = adminList(await rpc("api_admin_members")); render(); } catch (e) { toast(`${t("error")}: ${e.message}`); }
 }
 
 // ---------- Navigation / Lifecycle ----------
@@ -355,7 +364,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) { re
 setInterval(() => { if (!document.hidden) refreshState(); }, 60 * 1000);
 setInterval(() => { if (!document.hidden) refreshWeather(); }, 15 * 60 * 1000);
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 
 setLang(S.lang, false);
 render();

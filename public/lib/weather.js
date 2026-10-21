@@ -1,5 +1,5 @@
-// Open-Meteo abrufen und je Bucht auswerten. Läuft im Cloudflare Worker.
-import { BAYS, AMPEL, THUNDER, TIMEZONE, WEATHER_CACHE_SECONDS } from "./config.js";
+// Open-Meteo abrufen und je Bucht auswerten. Läuft im Browser (Open-Meteo erlaubt CORS) und in Tests.
+import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js";
 import { computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "./ampel.js";
 import { localParts } from "./time.js";
 
@@ -14,24 +14,10 @@ function buildUrls() {
   return { forecast, marine };
 }
 
-async function fetchJsonCached(url, ctx) {
-  const cache = typeof caches !== "undefined" ? caches.default : null;
-  const req = new Request(url, { headers: { Accept: "application/json" } });
-  if (cache) {
-    const hit = await cache.match(req);
-    if (hit) return hit.json();
-  }
-  const res = await fetch(req);
-  if (!res.ok) throw new Error(`Open-Meteo ${res.status} für ${url}`);
-  const data = await res.json();
-  if (cache) {
-    const stored = new Response(JSON.stringify(data), {
-      headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${WEATHER_CACHE_SECONDS}` },
-    });
-    const put = cache.put(req, stored);
-    if (ctx?.waitUntil) ctx.waitUntil(put); else await put;
-  }
-  return data;
+async function fetchJson(url, fetchImpl = fetch) {
+  const res = await fetchImpl(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
+  return res.json();
 }
 
 const asArray = (x) => (Array.isArray(x) ? x : [x]);
@@ -100,12 +86,12 @@ export function evaluate(forecasts, marines, jelly = {}, now = new Date()) {
   };
 }
 
-/** Komplettabruf für den Worker. */
-export async function loadWeather(jelly, ctx, now = new Date()) {
+/** Komplettabruf: beide Open-Meteo-Dienste, dann Auswertung. Marine darf ausfallen. */
+export async function loadWeather(jelly = {}, now = new Date(), fetchImpl = fetch) {
   const { forecast, marine } = buildUrls();
   const [fc, mr] = await Promise.all([
-    fetchJsonCached(forecast, ctx),
-    fetchJsonCached(marine, ctx).catch((e) => ({ error: String(e) })), // Marine darf ausfallen
+    fetchJson(forecast, fetchImpl),
+    fetchJson(marine, fetchImpl).catch((e) => ({ error: String(e) })),
   ]);
   const forecasts = asArray(fc);
   const marines = mr?.error ? [] : asArray(mr);
