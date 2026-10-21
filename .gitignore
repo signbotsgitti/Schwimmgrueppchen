@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+.dev.vars
+# Generierte Seeds mit Tokens / persönliche Links nie committen
+handover/*.sql
+handover/*links*

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Schwimmgrüppchen</title>
+  <meta name="description" content="Zu-/Absagen, Pinnwand und Wind-/Quallen-Ampel für die Schwimmgruppe">
+  <meta name="theme-color" content="#0b3d5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Schwimmen">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/icons/icon.svg" alt="" width="28" height="28"> <span data-t="appName">Schwimmgrüppchen</span></div>
+    <div class="topbar-right"><span id="me-name" class="me"></span><span id="net" class="net" hidden></span></div>
+  </header>
+
+  <main id="app">
+    <section id="view-today" class="view active"></section>
+    <section id="view-board" class="view"></section>
+    <section id="view-more" class="view"></section>
+    <div id="toast" class="toast" hidden></div>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="today" role="tab"><span class="ico">🏖️</span><span data-t="tabToday">Heute</span></button>
+    <button class="tab" data-view="board" role="tab"><span class="ico">💬</span><span data-t="tabBoard">Pinnwand</span><span id="unread-badge" class="badge" hidden></span></button>
+    <button class="tab" data-view="more" role="tab"><span class="ico">⚙️</span><span data-t="tabMore">Mehr</span></button>
+  </nav>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
