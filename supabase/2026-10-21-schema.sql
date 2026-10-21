@@ -72,6 +72,25 @@ revoke all on all tables in schema public from anon, authenticated;
 create or replace function public.app_today() returns date
 language sql stable as $$ select (now() at time zone 'Europe/Madrid')::date $$;
 
+-- Standard-Treffzeit (muss mit DEFAULT_MEET_TIME in public/lib/config.js übereinstimmen)
+create or replace function public.app_default_meet_time() returns text
+language sql immutable as $$ select '16:15' $$;
+
+-- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
+create or replace function public.app_target_day() returns date
+language plpgsql stable as $$
+declare
+  now_local timestamp := now() at time zone 'Europe/Madrid';
+  d date := now_local::date;
+  mt text;
+begin
+  select meet_time into mt from public.day_settings where day = d;
+  if now_local >= (d + coalesce(mt, public.app_default_meet_time())::time + interval '1 hour') then
+    return d + 1;
+  end if;
+  return d;
+end $$;
+
 create or replace function public.app_clean(p text, p_max int) returns text
 language sql immutable as $$ select left(btrim(regexp_replace(coalesce(p, ''), '\s+', ' ', 'g')), p_max) $$;
 
@@ -100,7 +119,7 @@ language sql as $$ insert into public.messages (member_id, kind, text) values (n
 create or replace function public.app_state(me public.members) returns jsonb
 language plpgsql stable as $$
 declare
-  d date := public.app_today();
+  d date := public.app_target_day();
   v_time text; v_time_by text; v_bay text; v_bay_by text;
 begin
   select ds.meet_time, mt.name, ds.meet_bay, mb.name into v_time, v_time_by, v_bay, v_bay_by
@@ -110,6 +129,7 @@ begin
     where ds.day = d;
   return jsonb_build_object(
     'day', to_char(d, 'YYYY-MM-DD'),
+    'today', to_char(public.app_today(), 'YYYY-MM-DD'),
     'me', public.app_member_json(me),
     'members', coalesce((
       select jsonb_agg(public.app_member_json(m) || jsonb_build_object('attendance',
@@ -146,7 +166,7 @@ begin return public.app_state(public.app_me(p_token)); end $$;
 
 create or replace function public.api_attendance(p_token text, p_status text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare me public.members := public.app_me(p_token); d date := public.app_today();
+declare me public.members := public.app_me(p_token); d date := public.app_target_day();
 begin
   if p_status not in ('yes', 'no', 'away', 'open') then
     raise exception 'status muss yes|no|away|open sein' using errcode = 'PT400';
@@ -162,7 +182,7 @@ end $$;
 
 create or replace function public.api_time(p_token text, p_time text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare me public.members := public.app_me(p_token); d date := public.app_today();
+declare me public.members := public.app_me(p_token); d date := public.app_target_day();
 begin
   if p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
     raise exception 'time muss HH:MM sein' using errcode = 'PT400';
@@ -175,7 +195,7 @@ end $$;
 
 create or replace function public.api_bay(p_token text, p_bay text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare me public.members := public.app_me(p_token); d date := public.app_today();
+declare me public.members := public.app_me(p_token); d date := public.app_target_day();
 begin
   if p_bay !~ '^[a-z0-9_-]{2,30}$' then raise exception 'Unbekannte Bucht' using errcode = 'PT400'; end if;
   insert into public.day_settings (day, meet_bay, bay_by) values (d, p_bay, me.id)
@@ -198,7 +218,7 @@ language plpgsql security definer set search_path = public as $$
 declare me public.members := public.app_me(p_token);
 begin
   if p_bay !~ '^[a-z0-9_-]{2,30}$' then raise exception 'Unbekannte Bucht' using errcode = 'PT400'; end if;
-  insert into public.jelly_reports (day, bay, member_id) values (public.app_today(), p_bay, me.id);
+  insert into public.jelly_reports (day, bay, member_id) values (public.app_target_day(), p_bay, me.id);
   perform public.app_system_message('🪼 ' || me.name || ': ' || p_bay);
   return public.app_state(me);
 end $$;
@@ -229,6 +249,23 @@ begin
     update public.members set lang = case when p_lang in ('en','fr') then p_lang else 'de' end where id = me.id returning * into me;
   end if;
   return public.app_member_json(me);
+end $$;
+
+-- Historie: Tagesstatus aller Mitglieder der letzten p_days Tage (bis heute, ohne Vorab-Zusagen für morgen)
+create or replace function public.api_history(p_token text, p_days int default 90) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare me public.members := public.app_me(p_token); d1 date := public.app_today(); d0 date;
+begin
+  d0 := d1 - greatest(least(coalesce(p_days, 90), 3660), 1) + 1;
+  return jsonb_build_object(
+    'from', to_char(d0, 'YYYY-MM-DD'), 'to', to_char(d1, 'YYYY-MM-DD'),
+    'members', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'active', active) order by lower(name)) from public.members), '[]'::jsonb),
+    'days', coalesce((
+      select jsonb_agg(jsonb_build_object('day', to_char(a.day, 'YYYY-MM-DD'), 'time', ds.meet_time, 'bay', ds.meet_bay, 'entries', a.entries) order by a.day)
+      from (select day, jsonb_agg(jsonb_build_object('m', member_id, 's', status) order by member_id) as entries
+            from public.attendance where day between d0 and d1 group by day) a
+      left join public.day_settings ds on ds.day = a.day), '[]'::jsonb)
+  );
 end $$;
 
 create or replace function public.api_admin_members(p_token text) returns jsonb
@@ -271,5 +308,5 @@ revoke execute on all functions in schema public from public, anon, authenticate
 grant execute on function
   public.api_state(text), public.api_attendance(text, text), public.api_time(text, text), public.api_bay(text, text),
   public.api_message(text, text), public.api_jelly(text, text), public.api_invite(text, text, text),
-  public.api_me(text, text), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text)
+  public.api_me(text, text), public.api_history(text, int), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text)
 to anon, authenticated;

@@ -19,6 +19,8 @@
 - Quallenmeldung überlagert die Berechnung (mind. rot); Empfehlung = niedrigste Stufe, Gleichstand → Reihenfolge in `BAYS`
 - Geolokation nur im Client; außerhalb der Bounding-Box ist „Ich komme“ gesperrt
 - Ungelesene Pinnwand-Nachrichten: Badging API + Zähler am Tab
+- Zieltag: `app_target_day()` in SQL liefert morgen, sobald 1 h nach der Treffzeit (Standard 16:15 auch in SQL hinterlegt) vergangen ist; Status, Treffzeit, Bucht, Quallen und Wetterfenster folgen dem Zieltag
+- Statistik-Tab: `api_history` (letzte 30/90/365 Tage), Rangliste nach Zusagen, Kalenderraster (Statusfarben), Excel-Export über eigenen XLSX-Writer `public/lib/xlsx.js` (ohne Abhängigkeiten)
 - Tests: 21 Ampel + 11 SQL-API auf PGlite (Postgres in WASM), GitHub Actions führt sie vor jedem Deploy aus
 
 ## Entscheidungen
@@ -32,7 +34,8 @@
 ## Offene Punkte
 - [x] Supabase-Projekt, Schema, Seed, Key/URL, GitHub Pages: erledigt am 2026-10-21
 - [x] `supabase/2026-10-21-update-franzoesisch.sql` ausgeführt (fr zulassen, Marie Solange auf fr)
-- [ ] `supabase/2026-10-21-update-bucht.sql` im SQL-Editor ausführen (Bucht pro Tag wählbar)
+- [x] `supabase/2026-10-21-update-bucht.sql` ausgeführt (Bucht pro Tag wählbar)
+- [ ] `supabase/2026-10-21-update-historie.sql` im SQL-Editor ausführen (Folgetag ab 1 h nach Treffzeit, Historie)
 - [ ] Windsektoren mit Karte verifizieren, besonders Cala Mesquida (evtl. 330–90°) und Son Bou (120–240°)
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
 - [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h) mit Erfahrung abgleichen
@@ -41,7 +44,7 @@
 ## Pfade
 - Frontend: `public/index.html`, `public/app.js`, `public/i18n.js`, `public/styles.css`, `public/sw.js`, `public/manifest.webmanifest`, `public/supabase-config.js`
 - Logik/Konfig: `public/lib/config.js`, `public/lib/ampel.js`, `public/lib/weather.js`, `public/lib/time.js`
-- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`
+- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`, `supabase/2026-10-21-update-historie.sql`
 - Skripte: `scripts/seed.mjs`, `scripts/dev-server.mjs`, `scripts/make-icons.mjs`, `scripts/weather-mock.mjs`
 - Tests: `test/ampel.test.mjs`, `test/api.test.mjs`, `test/_pg.mjs`
 - CI/Deploy: `.github/workflows/pages.yml`

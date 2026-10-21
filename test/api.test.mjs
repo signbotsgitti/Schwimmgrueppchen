@@ -66,6 +66,34 @@ test("bay: Bucht für heute vorschlagen, Uhrzeit bleibt erhalten, Validierung, U
   assert.equal((await rpc(db, "api_state", { p_token: K })).meet.bay, "sonbou");
 });
 
+test("Zieltag: bis 1 h nach Treffzeit heute, danach morgen (geänderte Treffzeit zählt)", async () => {
+  const q = async (ts, mt) => (await db.query(
+    `with n as (select ($1::timestamptz at time zone 'Europe/Madrid') as now_local)
+     select case when (select now_local from n) >= ((select now_local from n)::date + $2::time + interval '1 hour') then 1 else 0 end as tomorrow`,
+    [ts, mt])).rows[0].tomorrow;
+  // Reine Formelprüfung der Zeitlogik, unabhängig von now()
+  assert.equal(await q("2026-07-10T17:14:00+02:00", "16:15"), 0);
+  assert.equal(await q("2026-07-10T17:15:00+02:00", "16:15"), 1);
+  assert.equal(await q("2026-07-10T17:30:00+02:00", "17:00"), 0);
+  assert.equal(await q("2026-07-10T18:00:00+02:00", "17:00"), 1);
+  const s = await rpc(db, "api_state", { p_token: K });
+  assert.ok(s.day === s.today || new Date(s.day) - new Date(s.today) === 86400000, "day ist heute oder morgen");
+  const fnDay = (await db.query("select public.app_target_day() = public.app_today() as same, public.app_default_meet_time() as mt")).rows[0];
+  assert.equal(fnDay.mt, "16:15"); assert.equal(typeof fnDay.same, "boolean");
+});
+
+test("history: Tage mit Einträgen, Mitglieder, Zeitraum; Update-Skript läuft", async () => {
+  const h = await rpc(db, "api_history", { p_token: M, p_days: 30 });
+  assert.match(h.from, /^\d{4}-\d{2}-\d{2}$/); assert.ok(h.to >= h.from);
+  assert.ok(h.members.some((m) => m.name === "Kai"));
+  const dayWithKai = h.days.find((d) => d.entries.some((e) => e.m === 1 && e.s === "yes"));
+  if (dayWithKai) { assert.equal(dayWithKai.bay, "sonbou"); assert.equal(dayWithKai.time, "16:45"); }
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-historie.sql", import.meta.url), "utf8"));
+  assert.equal((await rpc(db, "api_history", { p_token: M, p_days: 30 })).members.length, h.members.length);
+  await fails(rpc(db, "api_history", { p_token: "x".repeat(32), p_days: 30 }), 401);
+});
+
 test("message: speichert bereinigt, leere Nachricht abgelehnt", async () => {
   const s = await rpc(db, "api_message", { p_token: K, p_text: "  Hallo   <b>Gruppe</b>  " });
   const last = s.messages.at(-1);

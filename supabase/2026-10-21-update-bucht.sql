@@ -1,14 +1,49 @@
 -- Update: Bucht pro Tag wählbar (Vorschlag mit Name), Uhrzeit optional.
 -- Im Supabase SQL-Editor ausführen (Projekt yjwqqupabzwxqonxdzcm). Mehrfach ausführbar.
+-- Enthält den jeweils aktuellen Stand der Funktionen (kompatibel mit späteren Updates).
 
 alter table public.day_settings alter column meet_time drop not null;
 alter table public.day_settings add column if not exists meet_bay text;
 alter table public.day_settings add column if not exists bay_by bigint references public.members(id);
 
+-- Standard-Treffzeit (muss mit DEFAULT_MEET_TIME in public/lib/config.js übereinstimmen)
+create or replace function public.app_default_meet_time() returns text
+language sql immutable as $$ select '16:15' $$;
+
+-- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
+create or replace function public.app_target_day() returns date
+language plpgsql stable as $$
+declare
+  now_local timestamp := now() at time zone 'Europe/Madrid';
+  d date := now_local::date;
+  mt text;
+begin
+  select meet_time into mt from public.day_settings where day = d;
+  if now_local >= (d + coalesce(mt, public.app_default_meet_time())::time + interval '1 hour') then
+    return d + 1;
+  end if;
+  return d;
+end $$;
+
+-- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
+create or replace function public.app_target_day() returns date
+language plpgsql stable as $$
+declare
+  now_local timestamp := now() at time zone 'Europe/Madrid';
+  d date := now_local::date;
+  mt text;
+begin
+  select meet_time into mt from public.day_settings where day = d;
+  if now_local >= (d + coalesce(mt, public.app_default_meet_time())::time + interval '1 hour') then
+    return d + 1;
+  end if;
+  return d;
+end $$;
+
 create or replace function public.app_state(me public.members) returns jsonb
 language plpgsql stable as $$
 declare
-  d date := public.app_today();
+  d date := public.app_target_day();
   v_time text; v_time_by text; v_bay text; v_bay_by text;
 begin
   select ds.meet_time, mt.name, ds.meet_bay, mb.name into v_time, v_time_by, v_bay, v_bay_by
@@ -18,6 +53,7 @@ begin
     where ds.day = d;
   return jsonb_build_object(
     'day', to_char(d, 'YYYY-MM-DD'),
+    'today', to_char(public.app_today(), 'YYYY-MM-DD'),
     'me', public.app_member_json(me),
     'members', coalesce((
       select jsonb_agg(public.app_member_json(m) || jsonb_build_object('attendance',
@@ -41,7 +77,7 @@ end $$;
 
 create or replace function public.api_bay(p_token text, p_bay text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare me public.members := public.app_me(p_token); d date := public.app_today();
+declare me public.members := public.app_me(p_token); d date := public.app_target_day();
 begin
   if p_bay !~ '^[a-z0-9_-]{2,30}$' then raise exception 'Unbekannte Bucht' using errcode = 'PT400'; end if;
   insert into public.day_settings (day, meet_bay, bay_by) values (d, p_bay, me.id)

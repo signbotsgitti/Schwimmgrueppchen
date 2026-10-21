@@ -3,6 +3,7 @@ import { STRINGS, makeT, LANGS } from "./i18n.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
 import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js";
 import { loadWeather } from "./lib/weather.js";
+import { buildXlsx } from "./lib/xlsx.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -31,6 +32,7 @@ const S = {
   view: "today",
   lastSeenMsg: LS.get("lastSeenMsg", 0),
   invite: null, admin: null, adminOpen: false,
+  history: null, historyDays: LS.get("historyDays", 90), historyLoading: false,
 };
 let t = makeT(S.lang);
 
@@ -76,7 +78,7 @@ async function refreshWeather(force = false) {
   if (!token || S.fatal) return;
   if (!force && S.weatherAt && Date.now() - S.weatherAt < WEATHER_REFRESH_MINUTES * 60 * 1000) return;
   try {
-    const w = await loadWeather(S.state?.jelly ?? {});
+    const w = await loadWeather(S.state?.jelly ?? {}, new Date(), fetch, S.state?.day ?? null);
     S.weather = w; S.weatherAt = Date.now(); LS.set("cache:weather", w); LS.set("cache:weatherAt", S.weatherAt);
   } catch { /* alter Stand bleibt */ }
   render();
@@ -107,6 +109,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const LOCALE = { de: "de-DE", en: "en-GB", fr: "fr-FR" };
 const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString(LOCALE[S.lang] ?? "de-DE", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
 const fmtDateTime = (ms) => new Date(ms).toLocaleString(LOCALE[S.lang] ?? "de-DE", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const fmtDay = (ymd) => { try { return new Date(`${ymd}T12:00:00`).toLocaleDateString(LOCALE[S.lang] ?? "de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }); } catch { return ymd; } };
 const compass = (deg) => t("compass")[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 let toastTimer;
 function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 2500); }
@@ -193,13 +196,102 @@ function render() {
     $("#retry")?.addEventListener("click", () => { S.offline = false; render(); refreshState(); });
     return;
   }
-  renderToday(); renderBoard(); renderMore();
+  renderToday(); renderBoard(); renderStats(); renderMore();
+}
+
+// ---------- Statistik ----------
+async function loadHistory(force = false) {
+  if (S.historyLoading) return;
+  if (!force && S.history && S.history.days_requested === S.historyDays) return;
+  S.historyLoading = true; render();
+  try { const h = await rpc("api_history", { p_days: S.historyDays }); h.days_requested = S.historyDays; S.history = h; LS.set("cache:history", h); }
+  catch (e) { toast(`${t("error")}: ${e.message}`); if (!S.history) S.history = LS.get("cache:history"); }
+  S.historyLoading = false; render();
+}
+
+function computeStats(h) {
+  const byMember = new Map(h.members.map((m) => [m.id, { ...m, yes: 0, no: 0, away: 0, days: {} }]));
+  let swimDays = 0, totalYes = 0;
+  for (const d of h.days) {
+    let anyYes = false;
+    for (const e of d.entries) { const m = byMember.get(e.m); if (!m) continue; m[e.s] = (m[e.s] ?? 0) + 1; m.days[d.day] = e.s; if (e.s === "yes") { anyYes = true; totalYes++; } }
+    if (anyYes) swimDays++;
+  }
+  const members = [...byMember.values()].filter((m) => m.active || m.yes + m.no + m.away > 0);
+  members.sort((a, b) => b.yes - a.yes || (b.yes / (swimDays || 1)) - (a.yes / (swimDays || 1)) || a.name.localeCompare(b.name, "de"));
+  // Tagesliste über den ganzen Zeitraum (auch Tage ohne Einträge, für den Kalender)
+  const days = []; const from = new Date(`${h.from}T12:00:00Z`), to = new Date(`${h.to}T12:00:00Z`);
+  for (let d = from; d <= to; d = new Date(d.getTime() + 86400000)) days.push(d.toISOString().slice(0, 10));
+  const dayInfo = Object.fromEntries(h.days.map((d) => [d.day, d]));
+  return { members, swimDays, totalYes, days, dayInfo };
+}
+
+function renderStats() {
+  const h = S.history;
+  const filters = `<div class="filters">${[30, 90, 365].map((n) => `<button class="btn sm ${S.historyDays === n ? "selected" : ""}" data-days="${n}">${t("days" + n)}</button>`).join("")}</div>`;
+  if (!h) {
+    $("#view-stats").innerHTML = `${filters}<p class="muted center">${S.historyLoading ? t("loading") : t("noHistory")}</p>`;
+  } else {
+    const st = computeStats(h);
+    const maxYes = Math.max(1, ...st.members.map((m) => m.yes));
+    const pct = (m) => st.swimDays ? Math.round((m.yes / st.swimDays) * 100) : 0;
+    const rank = st.members.map((m, i) => `
+      <div class="pos">${i + 1}.</div><div class="nm">${esc(m.name)}${m.active ? "" : ` <span class="muted">(${t("inactive")})</span>`}</div>
+      <div class="bar" title="${m.yes} / ${st.swimDays}"><i style="width:${(m.yes / maxYes) * 100}%"></i></div>
+      <div class="val"><b>${m.yes}</b> · ${pct(m)} %</div>`).join("");
+    const wd = (d) => { try { return new Date(`${d}T12:00:00`).toLocaleDateString(LOCALE[S.lang] ?? "de-DE", { weekday: "short" }).replace(".", ""); } catch { return ""; } };
+    const head = st.days.map((d) => `<th title="${d}">${wd(d)} ${d.slice(8, 10)}</th>`).join("");
+    const rows = st.members.map((m) => `<tr><th>${esc(m.name)}</th>${st.days.map((d) => {
+      const sStat = m.days[d] ?? "none"; const info = st.dayInfo[d];
+      const tip = `${fmtDay(d)} · ${esc(m.name)}: ${t({ yes: "legendYes", no: "legendNo", away: "legendAway", none: "legendNone" }[sStat])}${info?.bay ? " · " + bayName(info.bay) : ""}${info?.time ? " · " + info.time : ""}`;
+      const wk = new Date(`${d}T12:00:00Z`).getUTCDay() === 1 ? " wk" : "";
+      return `<td class="${sStat}${wk}" title="${tip}" data-tip="${tip}"></td>`;
+    }).join("")}</tr>`).join("");
+    $("#view-stats").innerHTML = `
+      ${filters}
+      <div class="tiles">
+        <div class="tile"><div class="num">${st.swimDays}</div><div class="lbl">${t("swimDays")}</div><div class="lbl muted">${t("swimDaysHint")}</div></div>
+        <div class="tile"><div class="num">${st.totalYes}</div><div class="lbl">${t("participations")}</div><div class="lbl muted">${fmtDay(h.from)} – ${fmtDay(h.to)}</div></div>
+      </div>
+      <div class="card"><h2>${t("ranking")}</h2>${st.members.length ? `<div class="rank">${rank}</div>` : `<p class="muted">${t("noHistory")}</p>`}<p class="muted small" style="margin:8px 0 0">${t("rankingHint")}</p></div>
+      <div class="card"><h2>${t("presenceGrid")}</h2>
+        <div class="gridwrap"><table class="pgrid"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="legend"><span><i class="yes"></i>👍 ${t("legendYes")}</span><span><i class="no"></i>👎 ${t("legendNo")}</span><span><i class="away"></i>✈️ ${t("legendAway")}</span><span><i></i>${t("legendNone")}</span></div>
+      </div>
+      <div class="card row spread"><button class="btn primary" id="export-xlsx">📥 ${t("exportXlsx")}</button><span class="muted small">${S.historyLoading ? t("loading") : ""}</span></div>`;
+    $("#export-xlsx").addEventListener("click", () => exportXlsx(st, h));
+    $("#view-stats").querySelectorAll("td[data-tip]").forEach((td) => td.addEventListener("click", () => toast(td.dataset.tip)));
+    const gw = $("#view-stats .gridwrap"); if (gw) gw.scrollLeft = gw.scrollWidth;
+  }
+  $("#view-stats").querySelectorAll("[data-days]").forEach((b) => b.addEventListener("click", () => { S.historyDays = Number(b.dataset.days); LS.set("historyDays", S.historyDays); loadHistory(true); }));
+}
+
+async function exportXlsx(st, h) {
+  const label = { yes: t("legendYes"), no: t("legendNo"), away: t("legendAway") };
+  const daysRows = [[t("colDay"), t("colBay"), t("colTime"), ...st.members.map((m) => m.name)]];
+  for (const d of st.days) {
+    const info = st.dayInfo[d]; if (!info) continue;
+    daysRows.push([d, info.bay ? bayName(info.bay) : bayName(DEFAULT_BAY), info.time ?? DEFAULT_MEET_TIME, ...st.members.map((m) => (m.days[d] ? label[m.days[d]] : ""))]);
+  }
+  const rankRows = [[t("colName"), t("colYes"), t("colNo"), t("colAway"), t("colRate")], ...st.members.map((m) => [m.name, m.yes, m.no, m.away, st.swimDays ? Math.round((m.yes / st.swimDays) * 100) / 100 : 0])];
+  rankRows.push([]); rankRows.push([t("swimDays"), st.swimDays]); rankRows.push([t("period"), `${h.from} – ${h.to}`]);
+  const blob = buildXlsx([
+    { name: t("sheetRanking"), rows: rankRows, widths: [22, 10, 10, 18, 18] },
+    { name: t("sheetDays"), rows: daysRows, widths: [12, 18, 8, ...st.members.map(() => 14)] },
+  ]);
+  const name = `${new Date().toISOString().slice(0, 10)}-Schwimmgrueppchen-Statistik.xlsx`;
+  const file = new File([blob], name, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === "AbortError") return; } }
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast(t("exportDone"));
 }
 
 function renderToday() {
   const st = S.state, me = st.me;
   const mine = st.members.find((m) => m.id === me.id)?.attendance?.status ?? "open";
   const blocked = S.onIsland === false;
+  const isTomorrow = st.today && st.day > st.today;
   const meetBayId = st.meet.bay ?? DEFAULT_BAY;
   const meetBay = bayName(meetBayId);
   const meetTime = st.meet.time ?? DEFAULT_MEET_TIME;
@@ -227,8 +319,9 @@ function renderToday() {
 
   $("#view-today").innerHTML = `
     ${stamp}
+    ${isTomorrow ? `<p class="warn small">${t("nextDayHint")}</p>` : ""}
     <div class="card">
-      <h2>${t("meetAt")}</h2>
+      <h2>${t("meetAt")} <span class="daylabel">${isTomorrow ? t("dayTomorrow") : t("dayToday")} · ${fmtDay(st.day)}</span></h2>
       <div class="meet">${esc(meetBay)} · ${esc(meetTime)}</div>
       <div class="pickers">
         <label class="picker">📍 <select id="meet-bay" aria-label="${t("changeBay")}">
@@ -395,6 +488,7 @@ async function loadAdmin() {
 document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
   S.view = b.dataset.view; render();
   if (S.view === "board") markSeen();
+  if (S.view === "stats") loadHistory();
   if (S.view === "more" && S.state?.me?.isAdmin && !S.admin) loadAdmin();
 }));
 window.addEventListener("online", () => { S.offline = false; refreshState(); refreshWeather(true); });

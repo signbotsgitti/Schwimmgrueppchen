@@ -15,6 +15,7 @@ await db.exec(readFileSync(new URL("../supabase/2026-10-21-schema.sql", import.m
 const seeds = existsSync("handover") ? readdirSync("handover").filter((f) => f.endsWith("-seed.sql")).sort() : [];
 if (seeds.length) { await db.exec(readFileSync(join("handover", seeds.at(-1)), "utf8")); console.log(`Seed geladen: handover/${seeds.at(-1)}`); }
 else console.log("Kein Seed in handover/ – erst `npm run seed` ausführen.");
+if (process.env.DEV_SQL && existsSync(process.env.DEV_SQL)) { await db.exec(readFileSync(process.env.DEV_SQL, "utf8")); console.log(`Zusatz-SQL geladen: ${process.env.DEV_SQL}`); }
 
 async function rpc(fn, params) {
   if (!/^api_[a-z_]+$/.test(fn)) return [404, { message: "Unbekannte Funktion" }];

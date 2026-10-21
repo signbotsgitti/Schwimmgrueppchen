@@ -12,7 +12,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=2.2.0">
+  <link rel="stylesheet" href="./styles.css?v=2.3.0">
 </head>
 <body>
   <header class="topbar">
@@ -23,6 +23,7 @@
   <main id="app">
     <section id="view-today" class="view active"></section>
     <section id="view-board" class="view"></section>
+    <section id="view-stats" class="view"></section>
     <section id="view-more" class="view"></section>
     <div id="toast" class="toast" hidden></div>
   </main>
@@ -30,9 +31,10 @@
   <nav class="tabs" role="tablist">
     <button class="tab active" data-view="today" role="tab"><span class="ico">🏖️</span><span data-t="tabToday">Heute</span></button>
     <button class="tab" data-view="board" role="tab"><span class="ico">💬</span><span data-t="tabBoard">Pinnwand</span><span id="unread-badge" class="badge" hidden></span></button>
+    <button class="tab" data-view="stats" role="tab"><span class="ico">📊</span><span data-t="tabStats">Statistik</span></button>
     <button class="tab" data-view="more" role="tab"><span class="ico">⚙️</span><span data-t="tabMore">Mehr</span></button>
   </nav>
 
-  <script type="module" src="./app.js?v=2.2.0"></script>
+  <script type="module" src="./app.js?v=2.3.0"></script>
 </body>
 </html>

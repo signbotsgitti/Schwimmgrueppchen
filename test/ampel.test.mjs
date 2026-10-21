@@ -170,3 +170,12 @@ test("evaluate: fehlende Marine-Daten ergeben null statt Fehler", () => {
   assert.equal(out.bays.mesquida.weather.waterTemp, null);
   assert.equal(BAYS.length, Object.keys(out.bays).length);
 });
+
+test("evaluate: Zieltag morgen -> Fenster bis morgen 16:00, Südwind heute Abend zählt, Gewitter morgen", () => {
+  const eveningSouth = fakeForecast((i, d, h) => ((d === "2026-10-21" && h >= 17) || d === "2026-10-22") ? { speed: 30, dir: 180, code: d === "2026-10-22" && h === 16 ? 96 : 1 } : { speed: 2, dir: 0 });
+  const out = evaluate(BAYS.map(() => eveningSouth), [], {}, new Date("2026-10-21T18:00:00+02:00"), "2026-10-22");
+  assert.equal(out.day, "2026-10-22"); assert.equal(out.cutoff, "2026-10-22T16:00");
+  assert.equal(out.bays.binisafua.level, 2); // 17:00 heute bis 16:00 morgen = 24 Stunden auflandig -> rot
+  assert.equal(out.bays.binisafua.thunder, true);
+  assert.equal(out.bays.binisafua.weather.at, "2026-10-22T16:00");
+});

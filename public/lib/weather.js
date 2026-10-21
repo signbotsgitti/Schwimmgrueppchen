@@ -47,9 +47,11 @@ function rowAt(rows, targetIso) {
  * @param {object[]} marines    Marine-Antworten (eine je Bucht)
  * @param {Record<string,{name:string,at:string}|null>} jelly  Quallenmeldung je Bucht-ID
  * @param {Date} now
+ * @param {string|null} targetDay  Zieltag YYYY-MM-DD (heute oder morgen); Default heute
  */
-export function evaluate(forecasts, marines, jelly = {}, now = new Date()) {
-  const { day, iso: nowIso } = localParts(now);
+export function evaluate(forecasts, marines, jelly = {}, now = new Date(), targetDay = null) {
+  const { day: today, iso: nowIso } = localParts(now);
+  const day = targetDay ?? today;
   const cutoffIso = `${day}T${String(AMPEL.cutoffHour).padStart(2, "0")}:00`;
   const bays = {};
   BAYS.forEach((bay, i) => {
@@ -87,7 +89,7 @@ export function evaluate(forecasts, marines, jelly = {}, now = new Date()) {
 }
 
 /** Komplettabruf: beide Open-Meteo-Dienste, dann Auswertung. Marine darf ausfallen. */
-export async function loadWeather(jelly = {}, now = new Date(), fetchImpl = fetch) {
+export async function loadWeather(jelly = {}, now = new Date(), fetchImpl = fetch, targetDay = null) {
   const { forecast, marine } = buildUrls();
   const [fc, mr] = await Promise.all([
     fetchJson(forecast, fetchImpl),
@@ -95,7 +97,7 @@ export async function loadWeather(jelly = {}, now = new Date(), fetchImpl = fetc
   ]);
   const forecasts = asArray(fc);
   const marines = mr?.error ? [] : asArray(mr);
-  const out = evaluate(forecasts, marines, jelly, now);
+  const out = evaluate(forecasts, marines, jelly, now, targetDay);
   if (mr?.error) out.marineError = mr.error;
   return out;
 }
