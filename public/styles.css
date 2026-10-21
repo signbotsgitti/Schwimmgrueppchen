@@ -70,7 +70,7 @@ button { font: inherit; }
 @media (prefers-color-scheme: dark) { .warn { background: #4a3a05; color: #ffe8a3; } }
 .reco { background: var(--brand-2); color: #fff; border-color: var(--brand-2); }
 .reco h2 { color: #d8eefb; }
-.reco .big { font-size: 1.3rem; font-weight: 800; }
+.reco .big { font-size: 1.6rem; font-weight: 800; line-height: 1.2; margin-top: 2px; }
 .jelly { background: #fde2e2; color: #7a1313; border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: .9rem; }
 .msgs { display: flex; flex-direction: column; gap: 8px; }
 .msg { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }

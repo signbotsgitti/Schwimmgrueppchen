@@ -1,9 +1,9 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.4.0";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.4.0";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.4.0";
-import { loadWeather } from "./lib/weather.js?v=2.4.0";
-import { buildXlsx } from "./lib/xlsx.js?v=2.4.0";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.4.1";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.4.1";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.4.1";
+import { loadWeather } from "./lib/weather.js?v=2.4.1";
+import { buildXlsx } from "./lib/xlsx.js?v=2.4.1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -416,7 +416,7 @@ function renderWeather() {
   for (const b of Object.values(w.bays)) { const l = jellyState[b.id] || b.jellyReport ? Math.max(b.level, 2) : b.level; if (l < best) { best = l; reco = b.id; } }
   const at = w.bays[reco]?.weather?.at?.slice(11) ?? "";
   return `
-    <div class="card reco"><h2>${t("recommended")}</h2><div class="big">${esc(t("recommendedText", { bay: bayName(reco) }))}</div><div class="small">${t("noDecision")}</div></div>
+    <div class="card reco"><h2>${t("recommended")}</h2><div>${S.state?.today && S.state.day > S.state.today ? t("recommendedTomorrow") : t("recommendedToday")}</div><div class="big">${esc(bayName(reco))}</div></div>
     <h2 class="muted small" style="margin:0 0 8px">${t("ampel")} · ${t("weatherFor", { time: at })}</h2>
     ${bays}
     <p class="muted small">${t("lastUpdate")}: ${S.weatherAt ? fmtDateTime(S.weatherAt) : "–"}</p>`;
