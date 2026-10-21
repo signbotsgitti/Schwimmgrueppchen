@@ -3,17 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "PWA für die Schwimmgruppe auf Menorca: Zu-/Absagen, Pinnwand, Wind-/Quallen-Ampel je Bucht",
+  "description": "PWA für die Schwimmgruppe auf Menorca: Zu-/Absagen, Pinnwand, Wind-/Quallen-Ampel je Bucht (Supabase + GitHub Pages)",
   "scripts": {
     "test": "node --test",
-    "dev": "wrangler pages dev public",
-    "db:schema:local": "wrangler d1 execute schwimmgrueppchen --local --file=schema.sql",
-    "db:schema:remote": "wrangler d1 execute schwimmgrueppchen --remote --file=schema.sql",
+    "dev": "node scripts/dev-server.mjs",
     "seed": "node scripts/seed.mjs",
-    "icons": "node scripts/make-icons.mjs",
-    "deploy": "wrangler pages deploy public"
+    "icons": "node scripts/make-icons.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "@electric-sql/pglite": "^0.5.11"
   }
 }

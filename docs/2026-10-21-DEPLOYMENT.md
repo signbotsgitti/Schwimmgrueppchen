@@ -1,59 +1,48 @@
-# Deployment-Anleitung – Schwimmgrüppchen (Cloudflare Pages + D1)
+# Deployment-Anleitung – Schwimmgrüppchen (Supabase + GitHub Pages)
 
-Stand: 2026-10-21. Kosten: 0 € (Free-Tier reicht bei Weitem).
+Stand: 2026-10-21. Kosten: 0 €. Alles läuft im Browser, kein Terminal nötig.
+Eine GitHub-Verbindung im Supabase-Dashboard ist **nicht** erforderlich.
 
-## Voraussetzungen
-- Cloudflare-Konto (kostenlos), Node ≥ 20, `npm install` im Projekt ausgeführt
-- Dieses Repository lokal ausgecheckt
+## 1. Supabase-Projekt anlegen
+1. https://supabase.com/dashboard → „New project“.
+2. Name frei (z. B. `schwimmgrueppchen`), Datenbank-Passwort merken (wird nicht in der App gebraucht),
+   Region `Central EU (Frankfurt)`.
+3. Warten, bis das Projekt bereit ist (ca. 1 Minute).
 
-## 1. Anmelden
-```bash
-npx wrangler login
-```
+## 2. Schema und API einspielen
+1. Links „SQL Editor“ → „New query“.
+2. Den kompletten Inhalt von `supabase/2026-10-21-schema.sql` einfügen → „Run“.
+   Die Datei ist idempotent, sie kann bei Updates einfach erneut ausgeführt werden.
 
-## 2. D1-Datenbank anlegen
-```bash
-npx wrangler d1 create schwimmgrueppchen
-```
-Die ausgegebene `database_id` in `wrangler.toml` unter `[[d1_databases]]` eintragen (ersetzt die Nullen).
+## 3. Startgruppe einspielen
+1. Neue Query, Inhalt von `handover/<datum>-seed.sql` einfügen → „Run“.
+   Die Datei entsteht lokal mit `npm run seed` und liegt nicht im Repository (enthält die Tokens).
+   Dazu gehört `handover/<datum>-links.md` mit den fertigen Links.
+2. Kontrolle: „Table Editor“ → `members` zeigt fünf Zeilen, Kai mit `is_admin = true`.
 
-## 3. Schema einspielen
-```bash
-npm run db:schema:remote
-```
+## 4. Zugangsdaten in die App eintragen
+1. „Project Settings“ → „API“: **Project URL** und **anon public** Key kopieren.
+2. In `public/supabase-config.js` eintragen (beide Werte sind öffentlich, sie landen ohnehin im Browser):
+   ```js
+   export const SUPABASE_URL = "https://xxxxxxxx.supabase.co";
+   export const SUPABASE_ANON_KEY = "eyJ...";
+   ```
+3. Committen und auf `main` pushen (oder die Datei direkt auf GitHub im Browser bearbeiten).
 
-## 4. Start-Teilnehmer + persönliche Links erzeugen
-```bash
-npm run seed -- https://<DEIN-PROJEKT>.pages.dev
-```
-Erzeugt `handover/<datum>-seed.sql` (Tokens) und `handover/<datum>-links.md` (Links). Beide Dateien sind
-in `.gitignore` und dürfen nicht committet werden. Dann:
-```bash
-npx wrangler d1 execute schwimmgrueppchen --remote --file=handover/<datum>-seed.sql
-```
-Hinweis: Die Projekt-URL steht erst nach Schritt 5 fest. Du kannst den Seed vorher mit einem Platzhalter
-erzeugen; im Link ist nur der Token wichtig (`https://<URL>/?u=<token>`). Die Links sind später auch
-in der App unter „Mehr → Admin“ (nur Kai) abrufbar.
+## 5. GitHub Pages aktivieren
+1. Repository auf GitHub → „Settings“ → „Pages“.
+2. Unter „Build and deployment“ bei „Source“ **GitHub Actions** wählen. Mehr ist nicht nötig.
+3. Der Workflow `.github/workflows/pages.yml` läuft bei jedem Push auf `main`: erst Tests, dann Deployment.
+   Fortschritt unter „Actions“. Die URL lautet `https://signbotsgitti.github.io/Schwimmgrueppchen/`.
 
-## 5. Pages-Projekt anlegen und deployen
-```bash
-npx wrangler pages project create schwimmgrueppchen --production-branch main
-npm run deploy
-```
-Die Ausgabe enthält die URL (z. B. `https://schwimmgrueppchen.pages.dev`). Das D1-Binding `DB` kommt aus
-`wrangler.toml` automatisch mit. Kontrolle im Dashboard: Pages → Projekt → Settings → Bindings.
-
-Alternativ: Pages-Projekt im Dashboard mit dem GitHub-Repo verbinden (Build command leer, Output `public`),
-dann deployt jeder Push auf `main` automatisch. Das D1-Binding muss dann einmal in den Settings gesetzt werden.
-
-## 6. Admin-Link und Start-Links
-Nach Schritt 4 stehen sie in `handover/<datum>-links.md`:
-- Kai (Admin), Monika, Amy, Lindsay, Marie Solange
-Versand z. B. per WhatsApp/Signal. Jede Person öffnet den Link einmal; der Token wird im Browser gespeichert,
-danach „Zum Startbildschirm hinzufügen“.
+## 6. Links verschicken
+Die Links aus `handover/<datum>-links.md` haben die Form
+`https://signbotsgitti.github.io/Schwimmgrueppchen/?u=<token>`.
+Jede Person öffnet ihren Link einmal (Token wird im Browser gespeichert), dann „Zum Startbildschirm hinzufügen“.
+Admin-Link = Kais Link. Die Links sind später auch in der App unter „Mehr → Admin“ (nur Kai) abrufbar.
 
 ## 7. Windsektoren vor Betrieb mit Karte prüfen
-Konfiguration in `src/config.js` (`BAYS[].onshore`, Richtung = woher der Wind kommt):
+Konfiguration in `public/lib/config.js` (`BAYS[].onshore`, Richtung = woher der Wind kommt):
 
 | Bucht | Koordinaten (ca.) | Öffnung | auflandig |
 |---|---|---|---|
@@ -61,27 +50,28 @@ Konfiguration in `src/config.js` (`BAYS[].onshore`, Richtung = woher der Wind ko
 | Cala Alcaufar | 39.8338, 4.2960 | nach Osten/Südosten | 60–150° |
 | Cala Mesquida | 39.9075, 4.3035 | nach Norden/Nordosten | 0–90° |
 
-Plausibilitätsprüfung (Kartenbild): Binisafúa und Alcaufar passen gut. Cala Mesquida öffnet eher nach
-Nord-Nordost; falls Nordwestwind dort erfahrungsgemäß Quallen bringt, Sektor auf `{ from: 330, to: 90 }`
-erweitern (Wrap über 0° wird unterstützt). Koordinaten ggf. um wenige hundert Meter auf den Strand verschieben.
+Binisafúa und Alcaufar passen zur Kartenlage. Cala Mesquida öffnet eher nach Nord-Nordost; falls Nordwestwind
+dort erfahrungsgemäß Quallen bringt, Sektor auf `{ from: 330, to: 90 }` erweitern (Wrap über 0° wird unterstützt).
 
 ## 8. Ampel-Schwellen anpassen
-In `src/config.js` (`AMPEL`): Mindestwind 10 km/h, Stufen 12/24/48 h, Abklingen 1 Stufe je 12 h,
-Flautentoleranz 2 h, Betrachtungsfenster 3 Tage + heute bis 16:00. Nach Änderung `npm test` und `npm run deploy`.
+In `public/lib/config.js` (`AMPEL`): Mindestwind 10 km/h, Stufen 12/24/48 h, Abklingen 1 Stufe je 12 h,
+Flautentoleranz 2 h, Fenster 3 Tage + heute bis 16:00. Nach Änderung pushen, der Workflow testet und deployt.
 
 ## 9. Betrieb
-- Täglicher Reset passiert automatisch (Status ist pro Datum gespeichert, Zeitzone Europe/Madrid).
-- Wetter wird im Worker 15 Minuten gecacht; die App lädt alle 15 Minuten bzw. beim Öffnen nach.
+- Täglicher Reset automatisch (Status pro Datum, Zeitzone Europe/Madrid in der Datenbank).
+- Wetter lädt die App beim Öffnen und alle 15 Minuten; Open-Meteo ist kostenlos und ohne Schlüssel.
 - Offline: letzter Stand bleibt sichtbar mit Zeitstempel.
 - Neue Teilnehmer: jedes Mitglied über „Mehr → Jemanden einladen“. Admin (Kai) kann umbenennen,
   deaktivieren, Link neu erzeugen (alter Link wird ungültig).
-- Datensicherung bei Bedarf: `npx wrangler d1 export schwimmgrueppchen --remote --output backup.sql`
+- **Supabase Free-Tier pausiert Projekte nach 7 Tagen ohne Anfragen.** Bei täglicher Nutzung passiert das nicht.
+  Nach einer längeren Pause im Dashboard „Restore project“ klicken, Daten bleiben erhalten.
+- Datensicherung bei Bedarf: Dashboard → „Database“ → „Backups“ (Free-Tier: keine automatischen Backups;
+  alternativ im SQL-Editor `select * from members` exportieren).
 
 ## Lokale Entwicklung
 ```bash
-npm run db:schema:local
-npm run seed -- http://localhost:8788
-npx wrangler d1 execute schwimmgrueppchen --local --file=handover/<datum>-seed.sql
-echo "WEATHER_MOCK=1" > .dev.vars     # simuliertes Wetter ohne Internet (optional)
-npm run dev
+npm install
+npm run seed          # erzeugt handover/<datum>-seed.sql + -links.md
+npm run dev           # http://localhost:8788/?u=<token>; RPC läuft auf PGlite, Wetter live von Open-Meteo
+npm test
 ```

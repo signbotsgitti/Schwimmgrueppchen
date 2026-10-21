@@ -1,6 +1,6 @@
-// Synthetische Open-Meteo-Antworten für lokale Entwicklung ohne Internet (WEATHER_MOCK=1 in .dev.vars).
-import { BAYS, AMPEL } from "./config.js";
-import { localParts } from "./time.js";
+// Synthetische Open-Meteo-Antworten für lokale Entwicklung/Tests ohne Internet.
+import { BAYS, AMPEL } from "../public/lib/config.js";
+import { localParts } from "../public/lib/time.js";
 
 function dayStr(d) { return d.toISOString().slice(0, 10); }
 

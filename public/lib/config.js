@@ -14,6 +14,7 @@ export const ISLAND_BOUNDS = { latMin: 39.79, latMax: 40.10, lonMin: 3.78, lonMa
 // Windrichtung = Richtung, AUS der der Wind kommt (Open-Meteo-Konvention).
 // Auflandig = Wind kommt vom offenen Meer in die Bucht hinein.
 // ⚠ Sektoren vor Betrieb mit Karte prüfen (siehe docs/…DEPLOYMENT.md, Abschnitt "Windsektoren").
+// Hinweis: Standard-Treffzeit/-Bucht gelten nur im Client; die Datenbank speichert nur Abweichungen.
 export const BAYS = [
   {
     id: "binisafua",
@@ -57,7 +58,7 @@ export const AMPEL = {
 // Gewitterwarnung: Weather-Code 95–99 zwischen diesen Stunden (heute)
 export const THUNDER = { fromHour: 14, toHour: 19, codes: [95, 96, 99] };
 
-// Wetter-Cache im Worker (Sekunden)
-export const WEATHER_CACHE_SECONDS = 15 * 60;
+// Wetter im Browser frühestens nach so vielen Minuten neu laden
+export const WEATHER_REFRESH_MINUTES = 10;
 
 export const LEVEL_NAMES = ["green", "orange", "red", "red-alert"];
