@@ -104,3 +104,12 @@ test("admin: nur Admin; rename, deactivate (sperrt Zugang), activate, regenerate
   await fails(rpc(db, "api_admin_action", { p_token: K, p_id: 999, p_action: "rename", p_name: "x" }), 404);
   await fails(rpc(db, "api_admin_action", { p_token: K, p_id: tp.id, p_action: "explode", p_name: null }), 400);
 });
+
+test("Sprachen: fr erlaubt, Unbekanntes fällt auf de zurück; Update-Skript läuft", async () => {
+  assert.equal((await rpc(db, "api_me", { p_token: K, p_lang: "fr" })).lang, "fr");
+  assert.equal((await rpc(db, "api_me", { p_token: K, p_lang: "xx" })).lang, "de");
+  const r = await rpc(db, "api_invite", { p_token: K, p_name: "Pierre", p_lang: "fr" });
+  assert.equal(r.lang, "fr");
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-franzoesisch.sql", import.meta.url), "utf8"));
+});

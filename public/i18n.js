@@ -1,4 +1,5 @@
-// Oberflächentexte Deutsch/Englisch
+// Oberflächentexte Deutsch/Englisch/Französisch
+export const LANGS = ["de", "en", "fr"];
 export const STRINGS = {
   de: {
     appName: "Schwimmgrüppchen",
@@ -17,7 +18,7 @@ export const STRINGS = {
     air: "Luft", water: "Wasser", waves: "Wellen", wind: "Wind", thunder: "⚡ Gewitter zwischen 14 und 19 Uhr vorhergesagt",
     weatherUnavailable: "Wetterdaten gerade nicht verfügbar.", weatherFor: "Wetter für {time} Uhr",
     boardEmpty: "Noch keine Nachrichten.", writeMessage: "Nachricht …", send: "Senden", unread: "ungelesen",
-    language: "Sprache", german: "Deutsch", english: "English",
+    language: "Sprache", german: "Deutsch", english: "English", french: "Français",
     invite: "Jemanden einladen", inviteName: "Name", inviteLang: "Sprache", inviteCreate: "Link erzeugen", inviteShare: "Link teilen",
     inviteCopied: "Link kopiert", inviteDone: "Persönlicher Link für {name}:", shareText: "Hallo {name}, hier ist dein persönlicher Link zur Schwimmgrüppchen-App:",
     invitedBy: "eingeladen von", admin: "Admin", members: "Teilnehmer", rename: "Umbenennen", deactivate: "Deaktivieren", activate: "Aktivieren",
@@ -46,7 +47,7 @@ export const STRINGS = {
     air: "Air", water: "Water", waves: "Waves", wind: "Wind", thunder: "⚡ Thunderstorms forecast between 2 and 7 pm",
     weatherUnavailable: "Weather data currently unavailable.", weatherFor: "Weather for {time}",
     boardEmpty: "No messages yet.", writeMessage: "Message …", send: "Send", unread: "unread",
-    language: "Language", german: "Deutsch", english: "English",
+    language: "Language", german: "Deutsch", english: "English", french: "Français",
     invite: "Invite someone", inviteName: "Name", inviteLang: "Language", inviteCreate: "Create link", inviteShare: "Share link",
     inviteCopied: "Link copied", inviteDone: "Personal link for {name}:", shareText: "Hi {name}, here is your personal link to the Schwimmgrüppchen app:",
     invitedBy: "invited by", admin: "Admin", members: "Members", rename: "Rename", deactivate: "Deactivate", activate: "Activate",
@@ -57,6 +58,35 @@ export const STRINGS = {
     serverError: "The server responded with an error:", offlineNoData: "No connection to the server. Please check your internet connection and retry.",
     sysTime: "{name} suggests {time}", sysJelly: "{name} reports jellyfish at {bay}", sysInvite: "{name} invited {who}",
     compass: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+  },
+  fr: {
+    appName: "Schwimmgrüppchen",
+    tabToday: "Aujourd'hui", tabBoard: "Tableau", tabMore: "Plus",
+    loading: "Chargement …", offline: "Hors ligne – dernier état", lastUpdate: "Mis à jour",
+    invalidLink: "Ce lien n'est pas valide. Merci de demander un nouveau lien personnel.",
+    noToken: "Merci d'ouvrir l'application via ton lien personnel.",
+    meetAt: "Point de rendez-vous", at: "à", proposedBy: "proposé par", changeTime: "Changer l'heure", newTime: "Nouvelle heure (HH:MM)",
+    youToday: "Tu viens aujourd'hui ?", yes: "Je viens", no: "Je ne viens pas", open: "pas décidé", away: "Pas sur l'île",
+    notOnIsland: "Tu n'es pas à Minorque en ce moment – la confirmation est désactivée.", msgToGroup: "Message au groupe",
+    who: "Qui vient ?", statusYes: "vient", statusNo: "ne vient pas", statusAway: "pas sur l'île", statusOpen: "pas décidé",
+    ampel: "Feu vent / méduses", recommended: "Suggestion", recommendedText: "Suggestion pour aujourd'hui : {bay}", noDecision: "(Le groupe décide.)",
+    level0: "vert", level1: "orange", level2: "rouge", level3: "rouge !", switchBay: "Changement de crique conseillé",
+    onshoreHours: "{h} h de vent de mer d'affilée", calmSince: "pas de vent de mer depuis {h} h", jellyReported: "Méduses signalées par {name} à {time}",
+    jellyBtn: "Méduses vues", jellyConfirm: "Signaler des méduses à {bay} ? La crique passera au rouge pour aujourd'hui.",
+    air: "Air", water: "Eau", waves: "Vagues", wind: "Vent", thunder: "⚡ Orages prévus entre 14 h et 19 h",
+    weatherUnavailable: "Données météo indisponibles pour le moment.", weatherFor: "Météo pour {time}",
+    boardEmpty: "Pas encore de messages.", writeMessage: "Message …", send: "Envoyer", unread: "non lus",
+    language: "Langue", german: "Deutsch", english: "English", french: "Français",
+    invite: "Inviter quelqu'un", inviteName: "Nom", inviteLang: "Langue", inviteCreate: "Créer le lien", inviteShare: "Partager le lien",
+    inviteCopied: "Lien copié", inviteDone: "Lien personnel pour {name} :", shareText: "Salut {name}, voici ton lien personnel vers l'application Schwimmgrüppchen :",
+    invitedBy: "invité·e par", admin: "Admin", members: "Membres", rename: "Renommer", deactivate: "Désactiver", activate: "Activer",
+    regenerate: "Nouveau lien", regenerateConfirm: "Créer un nouveau lien pour {name} ? L'ancien lien ne fonctionnera plus.", copyLink: "Copier le lien",
+    inactive: "désactivé", install: "Ajoute la page à l'écran d'accueil pour l'utiliser comme une application.",
+    location: "Position", locationUnknown: "non demandée / refusée", locationOnIsland: "à Minorque", locationOff: "pas à Minorque",
+    error: "Erreur", retry: "Réessayer", you: "toi",
+    serverError: "Le serveur a répondu avec une erreur :", offlineNoData: "Pas de connexion au serveur. Vérifie ta connexion internet et réessaie.",
+    sysTime: "{name} propose {time}", sysJelly: "{name} signale des méduses à {bay}", sysInvite: "{name} a invité {who}",
+    compass: ["N", "NE", "E", "SE", "S", "SO", "O", "NO"],
   },
 };
 

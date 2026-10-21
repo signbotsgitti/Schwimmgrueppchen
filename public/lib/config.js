@@ -37,6 +37,13 @@ export const BAYS = [
     // Nordostküste, nach Norden/Nordosten offen
     onshore: { from: 0, to: 90 },
   },
+  {
+    id: "sonbou",
+    name: "Son Bou",
+    lat: 39.8975, lon: 4.0750,
+    // langer offener Südstrand, nach Süden/Südwesten offen (breiter Sektor, da keine Cala)
+    onshore: { from: 120, to: 240 },
+  },
 ];
 
 export const AMPEL = {

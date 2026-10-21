@@ -9,7 +9,7 @@ create table if not exists public.members (
   id          bigint generated always as identity primary key,
   token       text not null unique,
   name        text not null,
-  lang        text not null default 'de' check (lang in ('de','en')),
+  lang        text not null default 'de' check (lang in ('de','en','fr')),
   active      boolean not null default true,
   is_admin    boolean not null default false,
   invited_by  bigint references public.members(id),
@@ -48,6 +48,10 @@ create table if not exists public.jelly_reports (
   created_at  timestamptz not null default now()
 );
 create index if not exists idx_jelly_day on public.jelly_reports(day, bay);
+
+-- Sprachen nachträglich erweitern (für bestehende Datenbanken)
+alter table public.members drop constraint if exists members_lang_check;
+alter table public.members add constraint members_lang_check check (lang in ('de','en','fr'));
 
 alter table public.members       enable row level security;
 alter table public.attendance    enable row level security;
@@ -184,7 +188,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   me public.members := public.app_me(p_token);
   n text := public.app_clean(p_name, 60);
-  l text := case when p_lang = 'en' then 'en' else 'de' end;
+  l text := case when p_lang in ('en','fr') then p_lang else 'de' end;
   tok text := replace(gen_random_uuid()::text, '-', '');
   new_id bigint;
 begin
@@ -202,7 +206,7 @@ language plpgsql security definer set search_path = public as $$
 declare me public.members := public.app_me(p_token);
 begin
   if p_lang is not null then
-    update public.members set lang = case when p_lang = 'en' then 'en' else 'de' end where id = me.id returning * into me;
+    update public.members set lang = case when p_lang in ('en','fr') then p_lang else 'de' end where id = me.id returning * into me;
   end if;
   return public.app_member_json(me);
 end $$;

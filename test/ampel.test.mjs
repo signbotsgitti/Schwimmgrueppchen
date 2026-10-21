@@ -133,13 +133,14 @@ const now = new Date("2026-10-21T10:00:00+02:00"); // 10:00 Madrid (CEST)
 
 test("evaluate: Südwind seit 3 Tagen -> Binisafúa rot!, Alcaufar+Mesquida grün, Empfehlung Alcaufar; Gewitter erkannt", () => {
   const southAll = fakeForecast((i, d, h) => ({ speed: 25, dir: 180, code: d === "2026-10-21" && h === 15 ? 95 : 1 }));
-  const fcs = [southAll, southAll, southAll];
-  const out = evaluate(fcs, [fakeMarine(), fakeMarine(), fakeMarine()], {}, now);
+  const fcs = BAYS.map(() => southAll);
+  const out = evaluate(fcs, BAYS.map(() => fakeMarine()), {}, now);
   assert.equal(out.day, "2026-10-21");
   assert.equal(out.cutoff, "2026-10-21T16:00");
   assert.equal(out.bays.binisafua.level, 3);
   assert.equal(out.bays.alcaufar.level, 0); // 180° liegt nicht in 60–150
   assert.equal(out.bays.mesquida.level, 0);
+  assert.equal(out.bays.sonbou.level, 3); // Südstrand ebenfalls auflandig
   assert.equal(out.recommended, "alcaufar"); // Gleichstand 0/0 -> Reihenfolge: alcaufar vor mesquida
   assert.equal(out.bays.binisafua.thunder, true);
   assert.equal(out.bays.binisafua.weather.at, "2026-10-21T16:00");
@@ -150,13 +151,13 @@ test("evaluate: Südwind seit 3 Tagen -> Binisafúa rot!, Alcaufar+Mesquida grü
 
 test("evaluate: Stunden nach 16:00 heute zählen nicht (Forecast-Südwind erst ab 17 Uhr)", () => {
   const lateSouth = fakeForecast((i, d, h) => ((d === "2026-10-21" && h >= 17) || d === "2026-10-22") ? { speed: 30, dir: 180 } : { speed: 2, dir: 0 });
-  const out = evaluate([lateSouth, lateSouth, lateSouth], [], {}, now);
+  const out = evaluate(BAYS.map(() => lateSouth), [], {}, now);
   assert.equal(out.bays.binisafua.level, 0);
 });
 
 test("evaluate: Quallenmeldung hat Vorrang, Empfehlung wechselt", () => {
   const calm = fakeForecast(() => ({ speed: 2, dir: 0 }));
-  const out = evaluate([calm, calm, calm], [], { binisafua: { name: "Kai", at: "2026-10-21T09:00:00Z" } }, now);
+  const out = evaluate(BAYS.map(() => calm), [], { binisafua: { name: "Kai", at: "2026-10-21T09:00:00Z" } }, now);
   assert.equal(out.bays.binisafua.level, 2);
   assert.equal(out.bays.binisafua.jelly, true);
   assert.equal(out.bays.binisafua.jellyReport.name, "Kai");
@@ -165,7 +166,7 @@ test("evaluate: Quallenmeldung hat Vorrang, Empfehlung wechselt", () => {
 
 test("evaluate: fehlende Marine-Daten ergeben null statt Fehler", () => {
   const calm = fakeForecast(() => ({ speed: 2, dir: 0 }));
-  const out = evaluate([calm, calm, calm], [], {}, now);
+  const out = evaluate(BAYS.map(() => calm), [], {}, now);
   assert.equal(out.bays.mesquida.weather.waterTemp, null);
   assert.equal(BAYS.length, Object.keys(out.bays).length);
 });

@@ -49,9 +49,16 @@ Konfiguration in `public/lib/config.js` (`BAYS[].onshore`, Richtung = woher der 
 | Cala Binisafúa (Binissafúller) | 39.8227, 4.2300 | nach Süden | 135–225° |
 | Cala Alcaufar | 39.8338, 4.2960 | nach Osten/Südosten | 60–150° |
 | Cala Mesquida | 39.9075, 4.3035 | nach Norden/Nordosten | 0–90° |
+| Son Bou | 39.8975, 4.0750 | langer Südstrand, nach Süden/Südwesten | 120–240° |
 
 Binisafúa und Alcaufar passen zur Kartenlage. Cala Mesquida öffnet eher nach Nord-Nordost; falls Nordwestwind
 dort erfahrungsgemäß Quallen bringt, Sektor auf `{ from: 330, to: 90 }` erweitern (Wrap über 0° wird unterstützt).
+
+Son Bou ist ein offener Strand ohne schützende Cala, daher der breite Sektor. Koordinaten liegen in Strandmitte.
+
+## 7a. Sprachen
+Deutsch, Englisch, Französisch. Neue Sprache: Block in `public/i18n.js` ergänzen, `LANGS` erweitern und in Supabase
+die Prüfung `members_lang_check` sowie `api_invite`/`api_me` anpassen (Vorlage: `supabase/2026-10-21-update-franzoesisch.sql`).
 
 ## 8. Ampel-Schwellen anpassen
 In `public/lib/config.js` (`AMPEL`): Mindestwind 10 km/h, Stufen 12/24/48 h, Abklingen 1 Stufe je 12 h,

@@ -1,5 +1,5 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT } from "./i18n.js";
+import { STRINGS, makeT, LANGS } from "./i18n.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
 import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js";
 import { loadWeather } from "./lib/weather.js";
@@ -23,7 +23,7 @@ if (token && url.searchParams.get("u") !== token) {
 
 // ---------- Zustand ----------
 const S = {
-  lang: LS.get("lang", navigator.language?.startsWith("en") ? "en" : "de"),
+  lang: LS.get("lang", LANGS.find((l) => navigator.language?.startsWith(l)) ?? "de"),
   state: LS.get("cache:state"), stateAt: LS.get("cache:stateAt"),
   weather: LS.get("cache:weather"), weatherAt: LS.get("cache:weatherAt"),
   offline: !navigator.onLine, fatal: null,
@@ -104,8 +104,9 @@ function setLang(lang, persist = true) {
 
 // ---------- Helfer ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString(S.lang === "de" ? "de-DE" : "en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
-const fmtDateTime = (ms) => new Date(ms).toLocaleString(S.lang === "de" ? "de-DE" : "en-GB", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const LOCALE = { de: "de-DE", en: "en-GB", fr: "fr-FR" };
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString(LOCALE[S.lang] ?? "de-DE", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
+const fmtDateTime = (ms) => new Date(ms).toLocaleString(LOCALE[S.lang] ?? "de-DE", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const compass = (deg) => t("compass")[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 let toastTimer;
 function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 2500); }
@@ -300,9 +301,10 @@ function renderBoard() {
 }
 
 function renderLangCard() {
-  return `<div class="card"><h2>${t("language")}</h2><div class="choice" style="grid-template-columns:1fr 1fr">
+  return `<div class="card"><h2>${t("language")}</h2><div class="choice">
     <button class="btn ${S.lang === "de" ? "selected" : ""}" data-lang="de">🇩🇪 ${t("german")}</button>
-    <button class="btn ${S.lang === "en" ? "selected" : ""}" data-lang="en">🇬🇧 ${t("english")}</button></div></div>`;
+    <button class="btn ${S.lang === "en" ? "selected" : ""}" data-lang="en">🇬🇧 ${t("english")}</button>
+    <button class="btn ${S.lang === "fr" ? "selected" : ""}" data-lang="fr">🇫🇷 ${t("french")}</button></div></div>`;
 }
 
 function renderMore() {
@@ -329,7 +331,7 @@ function renderMore() {
     ${renderLangCard()}
     <div class="card"><h2>${t("invite")}</h2>
       <div class="field"><label>${t("inviteName")}</label><input type="text" id="inv-name" maxlength="60"></div>
-      <div class="field"><label>${t("inviteLang")}</label><select id="inv-lang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
+      <div class="field"><label>${t("inviteLang")}</label><select id="inv-lang"><option value="de">Deutsch</option><option value="en">English</option><option value="fr">Français</option></select></div>
       <button class="btn primary" id="inv-create">${t("inviteCreate")}</button>
       ${inv}
     </div>

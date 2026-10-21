@@ -3,7 +3,8 @@
 ## Aktuelle Version
 - v2.0.0 (Supabase + GitHub Pages), Repository `signbotsgitti/Schwimmgrueppchen`
 - v1 (Cloudflare Pages + D1) wurde am selben Tag gemerged und durch v2 ersetzt, weil kein Cloudflare-Konto vorhanden ist
-- Noch nicht deployt; Anleitung: `docs/2026-10-21-DEPLOYMENT.md`
+- Deployt: https://signbotsgitti.github.io/Schwimmgrueppchen/ (GitHub Pages, Repo public), Supabase-Projekt `yjwqqupabzwxqonxdzcm` (Irland)
+- Sprachen: de/en/fr; Buchten: Binisafúa, Alcaufar, Mesquida, Son Bou
 
 ## Architektur
 - Statische PWA in `public/` (Vanilla JS, Service Worker für App-Shell mit relativen Pfaden, Manifest, Icons), Hosting GitHub Pages unter `/Schwimmgrueppchen/`
@@ -28,9 +29,9 @@
 - Seeds/Links bleiben in `handover/` und sind per `.gitignore` ausgeschlossen (Tokens = Zugang).
 
 ## Offene Punkte
-- [ ] Supabase-Projekt anlegen, Schema + Seed einspielen, URL/anon-Key in `public/supabase-config.js` eintragen
-- [ ] GitHub Pages auf „GitHub Actions“ stellen, ersten Workflow-Lauf prüfen
-- [ ] Windsektoren mit Karte verifizieren, besonders Cala Mesquida (evtl. 330–90°)
+- [x] Supabase-Projekt, Schema, Seed, Key/URL, GitHub Pages: erledigt am 2026-10-21
+- [ ] `supabase/2026-10-21-update-franzoesisch.sql` im SQL-Editor ausführen (fr zulassen, Marie Solange auf fr)
+- [ ] Windsektoren mit Karte verifizieren, besonders Cala Mesquida (evtl. 330–90°) und Son Bou (120–240°)
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
 - [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h) mit Erfahrung abgleichen
 - [ ] Supabase-Pause nach 7 Tagen Inaktivität im Blick behalten (Winterpause)
@@ -38,7 +39,7 @@
 ## Pfade
 - Frontend: `public/index.html`, `public/app.js`, `public/i18n.js`, `public/styles.css`, `public/sw.js`, `public/manifest.webmanifest`, `public/supabase-config.js`
 - Logik/Konfig: `public/lib/config.js`, `public/lib/ampel.js`, `public/lib/weather.js`, `public/lib/time.js`
-- Backend: `supabase/2026-10-21-schema.sql`
+- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`
 - Skripte: `scripts/seed.mjs`, `scripts/dev-server.mjs`, `scripts/make-icons.mjs`, `scripts/weather-mock.mjs`
 - Tests: `test/ampel.test.mjs`, `test/api.test.mjs`, `test/_pg.mjs`
 - CI/Deploy: `.github/workflows/pages.yml`
