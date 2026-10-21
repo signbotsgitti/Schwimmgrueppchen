@@ -64,7 +64,8 @@ async function refreshState() {
   } catch (e) {
     if (e.status === 401) S.fatal = "invalidLink";
     else if (e.status === 403) S.fatal = "inactive";
-    else S.offline = true;
+    else if (e.status) { S.fatal = "server"; S.fatalDetail = `HTTP ${e.status}: ${e.message}`; } // Server hat geantwortet, aber mit Fehler
+    else S.offline = true; // kein Netz / Verbindung blockiert
   }
   render();
 }
@@ -162,12 +163,19 @@ function render() {
   document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === S.view));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${S.view}`));
   if (S.fatal) {
-    const msg = S.fatal === "inactive" ? "Zugang deaktiviert / access deactivated" : t(S.fatal);
-    $("#view-today").innerHTML = `<div class="error">${esc(msg)}</div>`;
+    const msg = S.fatal === "inactive" ? "Zugang deaktiviert / access deactivated" : S.fatal === "server" ? `${t("serverError")}\n${S.fatalDetail}` : t(S.fatal);
+    $("#view-today").innerHTML = `<div class="error" style="white-space:pre-wrap">${esc(msg)}</div><p class="center"><button class="btn" id="retry">${t("retry")}</button></p>`;
+    $("#retry")?.addEventListener("click", () => { S.fatal = null; render(); refreshState(); });
     $("#view-board").innerHTML = ""; $("#view-more").innerHTML = renderLangCard();
     return;
   }
-  if (!S.state) { $("#view-today").innerHTML = `<p class="muted center">${t("loading")}</p>`; return; }
+  if (!S.state) {
+    $("#view-today").innerHTML = S.offline
+      ? `<div class="warn">${t("offlineNoData")}</div><p class="center"><button class="btn" id="retry">${t("retry")}</button></p>`
+      : `<p class="muted center">${t("loading")}</p>`;
+    $("#retry")?.addEventListener("click", () => { S.offline = false; render(); refreshState(); });
+    return;
+  }
   renderToday(); renderBoard(); renderMore();
 }
 
