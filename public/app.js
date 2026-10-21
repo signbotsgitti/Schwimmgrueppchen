@@ -11,13 +11,15 @@ const LS = {
 };
 
 // ---------- Token aus URL übernehmen ----------
+// Der Token bleibt bewusst in der Adresse (?u=…): iOS übernimmt beim "Zum Home-Bildschirm" die aktuelle URL,
+// und die installierte App hat einen eigenen localStorage, getrennt von Safari.
 const url = new URL(location.href);
-if (url.searchParams.get("u")) {
-  LS.set("token", url.searchParams.get("u"));
-  url.searchParams.delete("u");
-  history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);
-}
+if (url.searchParams.get("u")) LS.set("token", url.searchParams.get("u"));
 const token = LS.get("token");
+if (token && url.searchParams.get("u") !== token) {
+  url.searchParams.set("u", token);
+  history.replaceState({}, "", url.pathname + url.search + url.hash);
+}
 
 // ---------- Zustand ----------
 const S = {
@@ -373,6 +375,26 @@ setInterval(() => { if (!document.hidden) refreshState(); }, 60 * 1000);
 setInterval(() => { if (!document.hidden) refreshWeather(); }, 15 * 60 * 1000);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+
+// Manifest zur Laufzeit mit persönlicher start_url erzeugen, damit die installierte App mit Token startet.
+function installManifest() {
+  if (!token) return;
+  const base = location.origin + location.pathname.replace(/[^/]*$/, "");
+  const manifest = {
+    name: "Schwimmgrüppchen", short_name: "Schwimmen", id: base, scope: base,
+    start_url: `${base}?u=${token}`, display: "standalone", orientation: "portrait",
+    background_color: "#0b3d5c", theme_color: "#0b3d5c", lang: S.lang,
+    icons: [
+      { src: `${base}icons/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: `${base}icons/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: `${base}icons/icon-512-maskable.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+  };
+  const link = document.querySelector('link[rel="manifest"]') ?? Object.assign(document.createElement("link"), { rel: "manifest" });
+  link.href = "data:application/manifest+json;charset=utf-8," + encodeURIComponent(JSON.stringify(manifest));
+  if (!link.parentNode) document.head.appendChild(link);
+}
+installManifest();
 
 setLang(S.lang, false);
 render();
