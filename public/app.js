@@ -1,9 +1,9 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.3.3";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.3.3";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.3.3";
-import { loadWeather } from "./lib/weather.js?v=2.3.3";
-import { buildXlsx } from "./lib/xlsx.js?v=2.3.3";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.4.0";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.4.0";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.4.0";
+import { loadWeather } from "./lib/weather.js?v=2.4.0";
+import { buildXlsx } from "./lib/xlsx.js?v=2.4.0";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -110,6 +110,9 @@ const LOCALE = { de: "de-DE", en: "en-GB", fr: "fr-FR" };
 const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString(LOCALE[S.lang] ?? "de-DE", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
 const fmtDateTime = (ms) => new Date(ms).toLocaleString(LOCALE[S.lang] ?? "de-DE", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const fmtDay = (ymd) => { try { return new Date(`${ymd}T12:00:00`).toLocaleDateString(LOCALE[S.lang] ?? "de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }); } catch { return ymd; } };
+const STATUS_CYCLE = ["yes", "no", "maybe", "away", "open"];
+const nextStatus = (cur) => STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+const statusLabel = (s) => ({ yes: t("legendYes"), no: t("legendNo"), away: t("legendAway"), maybe: t("legendMaybe"), open: t("legendNone") }[s] ?? s);
 const compass = (deg) => t("compass")[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 let toastTimer;
 function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 2500); }
@@ -210,14 +213,14 @@ async function loadHistory(force = false) {
 }
 
 function computeStats(h) {
-  const byMember = new Map(h.members.map((m) => [m.id, { ...m, yes: 0, no: 0, away: 0, days: {} }]));
+  const byMember = new Map(h.members.map((m) => [m.id, { ...m, yes: 0, no: 0, away: 0, maybe: 0, days: {} }]));
   let swimDays = 0, totalYes = 0;
   for (const d of h.days) {
     let anyYes = false;
     for (const e of d.entries) { const m = byMember.get(e.m); if (!m) continue; m[e.s] = (m[e.s] ?? 0) + 1; m.days[d.day] = e.s; if (e.s === "yes") { anyYes = true; totalYes++; } }
     if (anyYes) swimDays++;
   }
-  const members = [...byMember.values()].filter((m) => m.active || m.yes + m.no + m.away > 0);
+  const members = [...byMember.values()].filter((m) => m.active || m.yes + m.no + m.away + m.maybe > 0);
   members.sort((a, b) => b.yes - a.yes || (b.yes / (swimDays || 1)) - (a.yes / (swimDays || 1)) || a.name.localeCompare(b.name, "de"));
   // Tagesliste über den ganzen Zeitraum (auch Tage ohne Einträge, für den Kalender)
   const days = []; const from = new Date(`${h.from}T12:00:00Z`), to = new Date(`${h.to}T12:00:00Z`);
@@ -243,9 +246,9 @@ function renderStats() {
     const head = st.days.map((d) => `<th title="${d}">${wd(d)} ${d.slice(8, 10)}</th>`).join("");
     const rows = st.members.map((m) => `<tr><th>${esc(m.name)}</th>${st.days.map((d) => {
       const sStat = m.days[d] ?? "none"; const info = st.dayInfo[d];
-      const tip = `${fmtDay(d)} · ${esc(m.name)}: ${t({ yes: "legendYes", no: "legendNo", away: "legendAway", none: "legendNone" }[sStat])}${info?.bay ? " · " + bayName(info.bay) : ""}${info?.time ? " · " + info.time : ""}`;
+      const tip = `${fmtDay(d)} · ${esc(m.name)}: ${statusLabel(sStat === "none" ? "open" : sStat)}${info?.bay ? " · " + bayName(info.bay) : ""}${info?.time ? " · " + info.time : ""}`;
       const wk = new Date(`${d}T12:00:00Z`).getUTCDay() === 1 ? " wk" : "";
-      return `<td class="${sStat}${wk}" title="${tip}" data-tip="${tip}"></td>`;
+      return `<td class="${sStat}${wk}" title="${tip}" data-tip="${tip}" data-m="${m.id}" data-d="${d}" data-cur="${sStat === "none" ? "open" : sStat}"></td>`;
     }).join("")}</tr>`).join("");
     $("#view-stats").innerHTML = `
       ${filters}
@@ -256,27 +259,39 @@ function renderStats() {
       <div class="card"><h2>${t("ranking")}</h2>${st.members.length ? `<div class="rank">${rank}</div>` : `<p class="muted">${t("noHistory")}</p>`}<p class="muted small" style="margin:8px 0 0">${t("rankingHint")}</p></div>
       <div class="card"><h2>${t("presenceGrid")}</h2>
         <div class="gridwrap"><table class="pgrid"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
-        <div class="legend"><span><i class="yes"></i>👍 ${t("legendYes")}</span><span><i class="no"></i>👎 ${t("legendNo")}</span><span><i class="away"></i>✈️ ${t("legendAway")}</span><span><i></i>${t("legendNone")}</span></div>
+        <div class="legend"><span><i class="yes"></i>👍 ${t("legendYes")}</span><span><i class="no"></i>👎 ${t("legendNo")}</span><span><i class="maybe"></i>🤷 ${t("legendMaybe")}</span><span><i class="away"></i>✈️ ${t("legendAway")}</span><span><i></i>${t("legendNone")}</span></div>
+        ${S.state?.me?.isAdmin ? `<p class="muted small" style="margin:8px 0 0">${t("adminCycleHint")}</p>` : ""}
       </div>
       <div class="card row spread"><button class="btn primary" id="export-xlsx">📥 ${t("exportXlsx")}</button><span class="muted small">${S.historyLoading ? t("loading") : ""}</span></div>`;
     $("#export-xlsx").addEventListener("click", () => exportXlsx(st, h));
-    $("#view-stats").querySelectorAll("td[data-tip]").forEach((td) => td.addEventListener("click", () => toast(td.dataset.tip)));
+    $("#view-stats").querySelectorAll("td[data-tip]").forEach((td) => td.addEventListener("click", async () => {
+      if (!S.state?.me?.isAdmin) { toast(td.dataset.tip); return; }
+      const next = nextStatus(td.dataset.cur);
+      try {
+        const data = await rpc("api_admin_attendance", { p_member_id: Number(td.dataset.m), p_status: next, p_day: td.dataset.d });
+        if (data?.members) setState(data);
+        toast(`${fmtDay(td.dataset.d)} · ${statusLabel(next)}`);
+        const keep = $("#view-stats .gridwrap")?.scrollLeft ?? 0;
+        await loadHistory(true);
+        const gw = $("#view-stats .gridwrap"); if (gw) gw.scrollLeft = keep;
+      } catch (e) { toast(`${t("error")}: ${e.message}`); }
+    }));
     const gw = $("#view-stats .gridwrap"); if (gw) gw.scrollLeft = gw.scrollWidth;
   }
   $("#view-stats").querySelectorAll("[data-days]").forEach((b) => b.addEventListener("click", () => { S.historyDays = Number(b.dataset.days); LS.set("historyDays", S.historyDays); loadHistory(true); }));
 }
 
 async function exportXlsx(st, h) {
-  const label = { yes: t("legendYes"), no: t("legendNo"), away: t("legendAway") };
+  const label = { yes: t("legendYes"), no: t("legendNo"), away: t("legendAway"), maybe: t("legendMaybe") };
   const daysRows = [[t("colDay"), t("colBay"), t("colTime"), ...st.members.map((m) => m.name)]];
   for (const d of st.days) {
     const info = st.dayInfo[d]; if (!info) continue;
     daysRows.push([d, info.bay ? bayName(info.bay) : bayName(DEFAULT_BAY), info.time ?? DEFAULT_MEET_TIME, ...st.members.map((m) => (m.days[d] ? label[m.days[d]] : ""))]);
   }
-  const rankRows = [[t("colName"), t("colYes"), t("colNo"), t("colAway"), t("colRate")], ...st.members.map((m) => [m.name, m.yes, m.no, m.away, st.swimDays ? Math.round((m.yes / st.swimDays) * 100) / 100 : 0])];
+  const rankRows = [[t("colName"), t("colYes"), t("colNo"), t("colMaybe"), t("colAway"), t("colRate")], ...st.members.map((m) => [m.name, m.yes, m.no, m.maybe, m.away, st.swimDays ? Math.round((m.yes / st.swimDays) * 100) / 100 : 0])];
   rankRows.push([]); rankRows.push([t("swimDays"), st.swimDays]); rankRows.push([t("period"), `${h.from} – ${h.to}`]);
   const blob = buildXlsx([
-    { name: t("sheetRanking"), rows: rankRows, widths: [22, 10, 10, 18, 18] },
+    { name: t("sheetRanking"), rows: rankRows, widths: [22, 10, 10, 14, 18, 18] },
     { name: t("sheetDays"), rows: daysRows, widths: [12, 18, 8, ...st.members.map(() => 14)] },
   ]);
   const name = `${new Date().toISOString().slice(0, 10)}-Schwimmgrueppchen-Statistik.xlsx`;
@@ -307,15 +322,15 @@ function renderToday() {
     : `<div class="choice">
          <button class="btn yes stack ${mine === "yes" ? "selected" : ""}" data-att="yes"><span class="ico">👍</span><span>${t("yes")}</span></button>
          <button class="btn no stack ${mine === "no" ? "selected" : ""}" data-att="no"><span class="ico">👎</span><span>${t("no")}</span></button>
-         <button class="btn stack ${mine === "open" ? "selected" : ""}" data-att="open"><span class="ico">🤷</span><span>${t("open")}</span></button>
+         <button class="btn stack ${mine === "maybe" ? "selected" : ""}" data-att="maybe"><span class="ico">🤷</span><span>${t("open")}</span></button>
        </div>`;
 
   const pill = (a) => {
     const s = a?.status ?? "open";
-    return `<span class="pill ${s}">${{ yes: "👍 " + t("statusYes"), no: "👎 " + t("statusNo"), away: "✈️ " + t("statusAway"), open: t("statusOpen") }[s]}</span>`;
+    return `<span class="pill ${s}">${{ yes: "👍 " + t("statusYes"), no: "👎 " + t("statusNo"), away: "✈️ " + t("statusAway"), maybe: "🤷 " + t("statusMaybe"), open: t("statusOpen") }[s]}</span>`;
   };
   const sorted = [...st.members].sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }));
-  const members = sorted.map((m) => `<li><span>${esc(m.name)}${m.id === me.id ? ` <span class="muted small">(${t("you")})</span>` : ""}</span>${pill(m.attendance)}</li>`).join("");
+  const members = sorted.map((m) => `<li><span>${esc(m.name)}${m.id === me.id ? ` <span class="muted small">(${t("you")})</span>` : ""}</span>${me.isAdmin && m.id !== me.id ? `<button class="pillbtn" data-adm-att="${m.id}" data-cur="${m.attendance?.status ?? "open"}" title="${t("adminCycle")}">${pill(m.attendance)}</button>` : pill(m.attendance)}</li>`).join("");
 
   $("#view-today").innerHTML = `
     ${stamp}
@@ -335,7 +350,7 @@ function renderToday() {
       ].filter(Boolean).join(" · ")}</p>` : ""}
     </div>
     <div class="card">
-      <h2>${t("youToday")}</h2>
+      <h2>${isTomorrow ? t("youTomorrow") : t("youToday")}</h2>
       ${choice}
     </div>
     <div class="card">
@@ -345,6 +360,11 @@ function renderToday() {
     ${renderWeather()}`;
 
   $("#view-today").querySelectorAll("[data-att]").forEach((b) => b.addEventListener("click", () => act("api_attendance", { p_status: b.dataset.att })));
+  $("#view-today").querySelectorAll("[data-adm-att]").forEach((b) => b.addEventListener("click", async () => {
+    const next = nextStatus(b.dataset.cur);
+    await act("api_admin_attendance", { p_member_id: Number(b.dataset.admAtt), p_status: next, p_day: null });
+    S.history = null; toast(`${t("statusChanged")}: ${statusLabel(next)}`);
+  }));
   $("#meet-time")?.addEventListener("change", async (ev) => {
     const v = ev.target.value;
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v) || v === meetTime) return;

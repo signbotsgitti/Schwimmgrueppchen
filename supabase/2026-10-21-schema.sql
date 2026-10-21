@@ -20,10 +20,13 @@ create table if not exists public.members (
 create table if not exists public.attendance (
   day         date not null,
   member_id   bigint not null references public.members(id),
-  status      text not null check (status in ('yes','no','away')),
+  status      text not null check (status in ('yes','no','away','maybe')),
   updated_at  timestamptz not null default now(),
   primary key (day, member_id)
 );
+-- Status "maybe" (Überraschung) nachträglich zulassen
+alter table public.attendance drop constraint if exists attendance_status_check;
+alter table public.attendance add constraint attendance_status_check check (status in ('yes','no','away','maybe'));
 
 create table if not exists public.day_settings (
   day          date primary key,
@@ -168,13 +171,35 @@ create or replace function public.api_attendance(p_token text, p_status text) re
 language plpgsql security definer set search_path = public as $$
 declare me public.members := public.app_me(p_token); d date := public.app_target_day();
 begin
-  if p_status not in ('yes', 'no', 'away', 'open') then
-    raise exception 'status muss yes|no|away|open sein' using errcode = 'PT400';
+  if p_status not in ('yes', 'no', 'away', 'maybe', 'open') then
+    raise exception 'status muss yes|no|away|maybe|open sein' using errcode = 'PT400';
   end if;
   if p_status = 'open' then
     delete from public.attendance where day = d and member_id = me.id;
   else
     insert into public.attendance (day, member_id, status) values (d, me.id, p_status)
+    on conflict (day, member_id) do update set status = excluded.status, updated_at = now();
+  end if;
+  return public.app_state(me);
+end $$;
+
+-- Admin: Status einer anderen Person setzen (Zieltag oder beliebiger Tag, z. B. Nachtrag für Personen ohne Link)
+create or replace function public.api_admin_attendance(p_token text, p_member_id bigint, p_status text, p_day text default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare me public.members := public.app_me(p_token); d date;
+begin
+  if not me.is_admin then raise exception 'Nur Admin' using errcode = 'PT403'; end if;
+  if p_status not in ('yes', 'no', 'away', 'maybe', 'open') then
+    raise exception 'status muss yes|no|away|maybe|open sein' using errcode = 'PT400';
+  end if;
+  if not exists (select 1 from public.members where id = p_member_id) then
+    raise exception 'Mitglied nicht gefunden' using errcode = 'PT404';
+  end if;
+  d := coalesce(p_day::date, public.app_target_day());
+  if p_status = 'open' then
+    delete from public.attendance where day = d and member_id = p_member_id;
+  else
+    insert into public.attendance (day, member_id, status) values (d, p_member_id, p_status)
     on conflict (day, member_id) do update set status = excluded.status, updated_at = now();
   end if;
   return public.app_state(me);
@@ -308,5 +333,6 @@ revoke execute on all functions in schema public from public, anon, authenticate
 grant execute on function
   public.api_state(text), public.api_attendance(text, text), public.api_time(text, text), public.api_bay(text, text),
   public.api_message(text, text), public.api_jelly(text, text), public.api_invite(text, text, text),
-  public.api_me(text, text), public.api_history(text, int), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text)
+  public.api_me(text, text), public.api_history(text, int), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text),
+  public.api_admin_attendance(text, bigint, text, text)
 to anon, authenticated;

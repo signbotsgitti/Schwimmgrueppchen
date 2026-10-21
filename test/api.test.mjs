@@ -43,7 +43,9 @@ test("attendance: yes/away/open, Validierung", async () => {
   assert.equal(s.members.find((m) => m.name === "Monika").attendance.status, "away");
   s = await rpc(db, "api_attendance", { p_token: M, p_status: "open" });
   assert.equal(s.members.find((m) => m.name === "Monika").attendance, null);
-  await fails(rpc(db, "api_attendance", { p_token: M, p_status: "maybe" }), 400);
+  s = await rpc(db, "api_attendance", { p_token: M, p_status: "maybe" });
+  assert.equal(s.members.find((m) => m.name === "Monika").attendance.status, "maybe");
+  await fails(rpc(db, "api_attendance", { p_token: M, p_status: "perhaps" }), 400);
 });
 
 test("time: Vorschlag mit Name + Systemnachricht, Validierung", async () => {
@@ -92,6 +94,22 @@ test("history: Tage mit Einträgen, Mitglieder, Zeitraum; Update-Skript läuft",
   await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-historie.sql", import.meta.url), "utf8"));
   assert.equal((await rpc(db, "api_history", { p_token: M, p_days: 30 })).members.length, h.members.length);
   await fails(rpc(db, "api_history", { p_token: "x".repeat(32), p_days: 30 }), 401);
+});
+
+test("admin attendance: Status für andere setzen, auch für vergangene Tage; nur Admin; Update-Skript läuft", async () => {
+  await fails(rpc(db, "api_admin_attendance", { p_token: M, p_member_id: 1, p_status: "yes", p_day: null }), 403);
+  let s = await rpc(db, "api_admin_attendance", { p_token: K, p_member_id: 2, p_status: "yes", p_day: null });
+  assert.equal(s.members.find((m) => m.id === 2).attendance.status, "yes");
+  s = await rpc(db, "api_admin_attendance", { p_token: K, p_member_id: 2, p_status: "yes", p_day: "2026-01-05" });
+  const h = await rpc(db, "api_history", { p_token: K, p_days: 3660 });
+  assert.ok(h.days.some((d) => d.day === "2026-01-05" && d.entries.some((e) => e.m === 2 && e.s === "yes")));
+  s = await rpc(db, "api_admin_attendance", { p_token: K, p_member_id: 2, p_status: "open", p_day: "2026-01-05" });
+  const h2 = await rpc(db, "api_history", { p_token: K, p_days: 3660 });
+  assert.ok(!h2.days.some((d) => d.day === "2026-01-05"));
+  await fails(rpc(db, "api_admin_attendance", { p_token: K, p_member_id: 999, p_status: "yes", p_day: null }), 404);
+  await fails(rpc(db, "api_admin_attendance", { p_token: K, p_member_id: 2, p_status: "yes", p_day: "kein-datum" }), 400);
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-ueberraschung.sql", import.meta.url), "utf8"));
 });
 
 test("message: speichert bereinigt, leere Nachricht abgelehnt", async () => {
