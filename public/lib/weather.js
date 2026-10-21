@@ -1,7 +1,7 @@
 // Open-Meteo abrufen und je Bucht auswerten. Läuft im Browser (Open-Meteo erlaubt CORS) und in Tests.
-import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js";
-import { computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "./ampel.js";
-import { localParts } from "./time.js";
+import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js?v=2.3.3";
+import { computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "./ampel.js?v=2.3.3";
+import { localParts } from "./time.js?v=2.3.3";
 
 function buildUrls() {
   const lat = BAYS.map((b) => b.lat).join(",");

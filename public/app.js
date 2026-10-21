@@ -1,9 +1,9 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js";
-import { loadWeather } from "./lib/weather.js";
-import { buildXlsx } from "./lib/xlsx.js";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.3.3";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.3.3";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.3.3";
+import { loadWeather } from "./lib/weather.js?v=2.3.3";
+import { buildXlsx } from "./lib/xlsx.js?v=2.3.3";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
