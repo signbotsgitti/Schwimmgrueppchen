@@ -1,5 +1,5 @@
 // Wind-/Quallen-Ampel: reine Funktionen, ohne I/O. Wird von Worker und Tests genutzt.
-import { AMPEL, BAYS, LEVEL_NAMES } from "./config.js?v=2.4.1";
+import { AMPEL, BAYS, LEVEL_NAMES } from "./config.js?v=2.4.2";
 
 /** Liegt Richtung `dir` (Grad) im Sektor from..to? Sektor darf über 0° wrappen (z. B. 330..30). */
 export function inSector(dir, from, to) {

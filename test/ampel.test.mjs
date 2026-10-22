@@ -132,15 +132,15 @@ function fakeMarine() {
 const now = new Date("2026-10-21T10:00:00+02:00"); // 10:00 Madrid (CEST)
 
 test("evaluate: Südwind seit 3 Tagen -> Binisafúa rot!, Alcaufar+Mesquida grün, Empfehlung Alcaufar; Gewitter erkannt", () => {
-  const southAll = fakeForecast((i, d, h) => ({ speed: 25, dir: 180, code: d === "2026-10-21" && h === 15 ? 95 : 1 }));
+  const southAll = fakeForecast((i, d, h) => ({ speed: 25, dir: 200, code: d === "2026-10-21" && h === 15 ? 95 : 1 })); // SSW
   const fcs = BAYS.map(() => southAll);
   const out = evaluate(fcs, BAYS.map(() => fakeMarine()), {}, now);
   assert.equal(out.day, "2026-10-21");
   assert.equal(out.cutoff, "2026-10-21T16:00");
   assert.equal(out.bays.binisafua.level, 3);
-  assert.equal(out.bays.alcaufar.level, 0); // 180° liegt nicht in 60–150
+  assert.equal(out.bays.alcaufar.level, 0); // 200° liegt nicht in 90–180 (SE)
   assert.equal(out.bays.mesquida.level, 0);
-  assert.equal(out.bays.sonbou.level, 3); // Südstrand ebenfalls auflandig
+  assert.equal(out.bays.sonbou.level, 3); // 200° liegt in 165–285 (S–W)
   assert.equal(out.recommended, "alcaufar"); // Gleichstand 0/0 -> Reihenfolge: alcaufar vor mesquida
   assert.equal(out.bays.binisafua.thunder, true);
   assert.equal(out.bays.binisafua.weather.at, "2026-10-21T16:00");
@@ -178,4 +178,13 @@ test("evaluate: Zieltag morgen -> Fenster bis morgen 16:00, Südwind heute Abend
   assert.equal(out.bays.binisafua.level, 2); // 17:00 heute bis 16:00 morgen = 24 Stunden auflandig -> rot
   assert.equal(out.bays.binisafua.thunder, true);
   assert.equal(out.bays.binisafua.weather.at, "2026-10-22T16:00");
+});
+
+test("Windsektoren je Bucht entsprechen der Ortskenntnis", () => {
+  const sec = Object.fromEntries(BAYS.map((b) => [b.id, b.onshore]));
+  const on = (id, dir) => inSector(dir, sec[id].from, sec[id].to);
+  assert.ok(on("mesquida", 90) && !on("mesquida", 180) && !on("mesquida", 0), "Mesquida: Ostwind");
+  assert.ok(on("alcaufar", 135) && !on("alcaufar", 45) && !on("alcaufar", 225), "Alcaufar: Südostwind");
+  assert.ok(on("binisafua", 180) && !on("binisafua", 90) && !on("binisafua", 270), "Binisafúa: Südwind");
+  assert.ok(on("sonbou", 180) && on("sonbou", 225) && on("sonbou", 270) && !on("sonbou", 135) && !on("sonbou", 315), "Son Bou: Süd bis West");
 });

@@ -38,7 +38,7 @@
 - [x] `supabase/2026-10-21-update-bucht.sql` ausgeführt (Bucht pro Tag wählbar)
 - [x] Historie-Update ausgeführt (komplettes Schema erneut eingespielt)
 - [ ] `supabase/2026-10-21-update-ueberraschung.sql` oder komplettes Schema ausführen (Status „Überraschung“, Admin-Nachtrag)
-- [ ] Windsektoren mit Karte verifizieren, besonders Cala Mesquida (evtl. 330–90°) und Son Bou (120–240°)
+- [x] Windsektoren nach Ortskenntnis gesetzt (2026-10-22): Mesquida E, Alcaufar SE, Binisafúa S, Son Bou S–W
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
 - [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h) mit Erfahrung abgleichen
 - [ ] Supabase-Pause nach 7 Tagen Inaktivität im Blick behalten (Winterpause)

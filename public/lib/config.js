@@ -13,36 +13,36 @@ export const ISLAND_BOUNDS = { latMin: 39.79, latMax: 40.10, lonMin: 3.78, lonMa
 // Buchten in Prioritätsreihenfolge (bei Gleichstand gewinnt die erste)
 // Windrichtung = Richtung, AUS der der Wind kommt (Open-Meteo-Konvention).
 // Auflandig = Wind kommt vom offenen Meer in die Bucht hinein.
-// ⚠ Sektoren vor Betrieb mit Karte prüfen (siehe docs/…DEPLOYMENT.md, Abschnitt "Windsektoren").
+// Sektoren nach Ortskenntnis (Kai, 2026-10-22): Einzelrichtung ±45°, Son Bou Süd bis West ±15°.
 // Hinweis: Standard-Treffzeit/-Bucht gelten nur im Client; die Datenbank speichert nur Abweichungen.
 export const BAYS = [
   {
     id: "binisafua",
     name: "Cala Binisafúa",
     lat: 39.8227, lon: 4.2300,
-    // Bucht nach Süden offen
+    // Südwind (S ±45°)
     onshore: { from: 135, to: 225 },
   },
   {
     id: "alcaufar",
     name: "Cala Alcaufar",
     lat: 39.8338, lon: 4.2960,
-    // nach Osten/Südosten offen
-    onshore: { from: 60, to: 150 },
+    // Südostwind (SE ±45°)
+    onshore: { from: 90, to: 180 },
   },
   {
     id: "mesquida",
     name: "Cala Mesquida",
     lat: 39.9075, lon: 4.3035,
-    // Nordostküste, nach Norden/Nordosten offen
-    onshore: { from: 0, to: 90 },
+    // Ostwind (E ±45°)
+    onshore: { from: 45, to: 135 },
   },
   {
     id: "sonbou",
     name: "Son Bou",
     lat: 39.8975, lon: 4.0750,
-    // langer offener Südstrand, nach Süden/Südwesten offen (breiter Sektor, da keine Cala)
-    onshore: { from: 120, to: 240 },
+    // Südwind bis Westwind (S–W, ±15° Rand)
+    onshore: { from: 165, to: 285 },
   },
 ];
 

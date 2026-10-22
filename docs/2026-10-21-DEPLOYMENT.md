@@ -41,20 +41,18 @@ Die Links aus `handover/<datum>-links.md` haben die Form
 Jede Person öffnet ihren Link einmal (Token wird im Browser gespeichert), dann „Zum Startbildschirm hinzufügen“.
 Admin-Link = Kais Link. Die Links sind später auch in der App unter „Mehr → Admin“ (nur Kai) abrufbar.
 
-## 7. Windsektoren vor Betrieb mit Karte prüfen
-Konfiguration in `public/lib/config.js` (`BAYS[].onshore`, Richtung = woher der Wind kommt):
+## 7. Windsektoren je Bucht
+Konfiguration in `public/lib/config.js` (`BAYS[].onshore`, Richtung = woher der Wind kommt). Stand 2026-10-22 nach
+Ortskenntnis: Einzelrichtung ±45°, Son Bou als Bereich Süd bis West mit 15° Rand.
 
-| Bucht | Koordinaten (ca.) | Öffnung | auflandig |
+| Bucht | Koordinaten (ca.) | auflandig laut Ortskenntnis | Sektor |
 |---|---|---|---|
-| Cala Binisafúa (Binissafúller) | 39.8227, 4.2300 | nach Süden | 135–225° |
-| Cala Alcaufar | 39.8338, 4.2960 | nach Osten/Südosten | 60–150° |
-| Cala Mesquida | 39.9075, 4.3035 | nach Norden/Nordosten | 0–90° |
-| Son Bou | 39.8975, 4.0750 | langer Südstrand, nach Süden/Südwesten | 120–240° |
+| Cala Binisafúa | 39.8227, 4.2300 | Südwind | 135–225° |
+| Cala Alcaufar | 39.8338, 4.2960 | Südostwind | 90–180° |
+| Cala Mesquida | 39.9075, 4.3035 | Ostwind | 45–135° |
+| Son Bou | 39.8975, 4.0750 | Südwind bis Westwind | 165–285° |
 
-Binisafúa und Alcaufar passen zur Kartenlage. Cala Mesquida öffnet eher nach Nord-Nordost; falls Nordwestwind
-dort erfahrungsgemäß Quallen bringt, Sektor auf `{ from: 330, to: 90 }` erweitern (Wrap über 0° wird unterstützt).
-
-Son Bou ist ein offener Strand ohne schützende Cala, daher der breite Sektor. Koordinaten liegen in Strandmitte.
+Sektoren dürfen über 0° wrappen (z. B. `{ from: 330, to: 30 }`). Nach Änderung `npm test` und pushen.
 
 ## 7a. Sprachen
 Deutsch, Englisch, Französisch. Neue Sprache: Block in `public/i18n.js` ergänzen, `LANGS` erweitern und in Supabase
