@@ -1,9 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.5.0";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.5.0";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.5.0";
-import { loadWeather } from "./lib/weather.js?v=2.5.0";
-import { buildXlsx } from "./lib/xlsx.js?v=2.5.0";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.5.1";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.5.1";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.5.1";
+import { loadWeather } from "./lib/weather.js?v=2.5.1";
+import { buildXlsx } from "./lib/xlsx.js?v=2.5.1";
+import { renderHelp } from "./help.js?v=2.5.1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -477,7 +478,8 @@ function renderMore() {
       ${inv}
     </div>
     ${admin}
-    <div class="card"><h2>${t("location")}</h2><p class="small">${loc}</p><p class="muted small">${t("install")}</p></div>`;
+    <div class="card"><h2>${t("location")}</h2><p class="small">${loc}</p><p class="muted small">${t("install")}</p></div>
+    ${renderHelp(S.lang)}`;
 
   $("#view-more").querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => { setLang(b.dataset.lang); render(); }));
   $("#inv-create").addEventListener("click", async () => {
