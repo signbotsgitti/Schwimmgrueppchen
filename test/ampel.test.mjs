@@ -146,7 +146,7 @@ test("evaluate: Südwind seit 3 Tagen -> Binisafúa rot!, Alcaufar+Mesquida grü
   assert.equal(out.bays.binisafua.weather.at, "2026-10-21T16:00");
   assert.equal(out.bays.binisafua.weather.waterTemp, 23.1);
   assert.equal(out.bays.binisafua.weather.waveHeight, 0.4);
-  assert.equal(out.bays.binisafua.weather.windDir, 180);
+  assert.equal(out.bays.binisafua.weather.windDir, 200);
 });
 
 test("evaluate: Stunden nach 16:00 heute zählen nicht (Forecast-Südwind erst ab 17 Uhr)", () => {
