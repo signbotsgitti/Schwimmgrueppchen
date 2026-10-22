@@ -1,10 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.5.1";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.5.1";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.5.1";
-import { loadWeather } from "./lib/weather.js?v=2.5.1";
-import { buildXlsx } from "./lib/xlsx.js?v=2.5.1";
-import { renderHelp } from "./help.js?v=2.5.1";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.5.2";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.5.2";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.5.2";
+import { loadWeather } from "./lib/weather.js?v=2.5.2";
+import { buildXlsx } from "./lib/xlsx.js?v=2.5.2";
+import { renderHelp } from "./help.js?v=2.5.2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -395,8 +395,8 @@ function renderWeather() {
     const jr = jellyState[b.id] ?? b.jellyReport;
     const level = jr ? Math.max(b.level, 2) : b.level;
     const wx = b.weather;
-    // Pfeil zeigt dorthin, WOHER der Wind kommt (wie ein Kompasszeiger auf die Quelle), Text "aus S"
-    const arrow = wx.windDir != null ? `<span class="arrow" style="transform:rotate(${wx.windDir % 360}deg)">⬆︎</span>` : "";
+    // Pfeil zeigt dorthin, WOHIN der Wind weht (Südwind -> Pfeil nach oben), Text "aus S" nennt die Herkunft
+    const arrow = wx.windDir != null ? `<span class="arrow" style="transform:rotate(${(wx.windDir + 180) % 360}deg)">⬆︎</span>` : "";
     const runText = b.onshoreRun > 0 ? t("onshoreHours", { h: b.onshoreRun }) : t("calmSince", { h: b.offshoreHours });
     return `
       <div class="card bay l${level}">
