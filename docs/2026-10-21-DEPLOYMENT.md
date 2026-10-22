@@ -59,8 +59,20 @@ Deutsch, Englisch, Französisch. Neue Sprache: Block in `public/i18n.js` ergänz
 die Prüfung `members_lang_check` sowie `api_invite`/`api_me` anpassen (Vorlage: `supabase/2026-10-21-update-franzoesisch.sql`).
 
 ## 8. Ampel-Schwellen anpassen
-In `public/lib/config.js` (`AMPEL`): Mindestwind 10 km/h, Stufen 12/24/48 h, Abklingen 1 Stufe je 12 h,
-Flautentoleranz 2 h, Fenster 3 Tage + heute bis 16:00. Nach Änderung pushen, der Workflow testet und deployt.
+In `public/lib/config.js` (`AMPEL`), Stand 2026-10-22, abgeglichen mit der Zusammenfassung zu Quallenrisiken im Mittelmeer:
+
+| Parameter | Wert | Begründung |
+|---|---|---|
+| `minWindKmh` | 10 | ab ca. 3 Bft transportiert Wind Quallen; 10–25 km/h ist der „ideale“ Transport |
+| `thresholds` | 12 / 24 / 48 h | 12–24 h konstanter auflandiger Wind bis ein Schwarm den Strand erreicht; mehrtägig = Bloom |
+| `gapToleranceHours` | 2 | kurze Flauten unterbrechen „am Stück“ nicht |
+| `decayHoursOffshore` | 4 | aktiver ablandiger Wind (≥ 10 km/h aus dem Gegensektor) treibt Quallen „innerhalb weniger Stunden“ hinaus |
+| `decayHoursCalm` | 12 | Flaute oder Seitenwind: Schwarm bleibt träge liegen |
+| `strongWindKmh` | 40 | ab ca. 6 Bft zerreißt die Brandung Schwärme; Hinweis auf unsichtbare Tentakelfragmente |
+| `strongWindLookbackHours` | 12 | Zeitraum, in dem Starkwind den Hinweis auslöst |
+| `pastDays` / `cutoffHour` | 3 / 16 | Betrachtungsfenster bis zum Treffen des Zieltags |
+
+Nach Änderung `npm test` und pushen, der Workflow deployt.
 
 ## 9. Betrieb
 - Täglicher Reset automatisch (Status pro Datum, Zeitzone Europe/Madrid in der Datenbank).

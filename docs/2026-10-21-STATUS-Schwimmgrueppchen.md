@@ -25,6 +25,7 @@
 - Tests: 21 Ampel + 11 SQL-API auf PGlite (Postgres in WASM), GitHub Actions führt sie vor jedem Deploy aus
 
 ## Entscheidungen
+- 2026-10-22 Ampel gegen Quallen-Zusammenfassung (Mittelmeer) abgeglichen: Abklingen jetzt zweistufig (ablandiger Wind 4 h/Stufe, Flaute 12 h/Stufe), Starkwind-Hinweis ab 40 km/h auflandig in den letzten 12 h. Stufen 12/24/48 h und 10 km/h bestätigt.
 - Supabase statt Cloudflare: vorhandenes Konto. Konsequenz: Backend in SQL statt JavaScript, Wetterabruf in den Browser verlegt.
 - RPC-Funktionen statt Edge Functions: kein CLI, kein Deploy-Schritt, eine SQL-Datei im Editor genügt. Nachteil: Logik in plpgsql, dafür mit Tests abgedeckt.
 - Wetter im Browser statt im Backend: Open-Meteo erlaubt CORS, 5 Personen erzeugen vernachlässigbare Last; dafür kein serverseitiger Cache mehr.
@@ -40,7 +41,7 @@
 - [ ] `supabase/2026-10-21-update-ueberraschung.sql` oder komplettes Schema ausführen (Status „Überraschung“, Admin-Nachtrag)
 - [x] Windsektoren nach Ortskenntnis gesetzt (2026-10-22): Mesquida E, Alcaufar SE, Binisafúa S, Son Bou S–W
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
-- [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h) mit Erfahrung abgleichen
+- [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h, Abklingen 4/12 h) mit Erfahrung abgleichen
 - [ ] Supabase-Pause nach 7 Tagen Inaktivität im Blick behalten (Winterpause)
 
 ## Pfade

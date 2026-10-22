@@ -1,7 +1,7 @@
 // Open-Meteo abrufen und je Bucht auswerten. Läuft im Browser (Open-Meteo erlaubt CORS) und in Tests.
-import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js?v=2.4.3";
-import { computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "./ampel.js?v=2.4.3";
-import { localParts } from "./time.js?v=2.4.3";
+import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js?v=2.5.0";
+import { computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "./ampel.js?v=2.5.0";
+import { localParts } from "./time.js?v=2.5.0";
 
 function buildUrls() {
   const lat = BAYS.map((b) => b.lat).join(",");
@@ -83,7 +83,7 @@ export function evaluate(forecasts, marines, jelly = {}, now = new Date(), targe
   const recommended = recommendBay(Object.fromEntries(Object.entries(bays).map(([k, v]) => [k, { level: v.level }])));
   return {
     generatedAt: now.toISOString(), day, cutoff: cutoffIso,
-    config: { minWindKmh: AMPEL.minWindKmh, thresholds: AMPEL.thresholds, decayHours: AMPEL.decayHours },
+    config: { minWindKmh: AMPEL.minWindKmh, thresholds: AMPEL.thresholds, decayHoursOffshore: AMPEL.decayHoursOffshore, decayHoursCalm: AMPEL.decayHoursCalm, strongWindKmh: AMPEL.strongWindKmh },
     bays, recommended,
   };
 }

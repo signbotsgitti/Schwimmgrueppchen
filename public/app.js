@@ -1,9 +1,9 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.4.3";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.4.3";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.4.3";
-import { loadWeather } from "./lib/weather.js?v=2.4.3";
-import { buildXlsx } from "./lib/xlsx.js?v=2.4.3";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.5.0";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.5.0";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.5.0";
+import { loadWeather } from "./lib/weather.js?v=2.5.0";
+import { buildXlsx } from "./lib/xlsx.js?v=2.5.0";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -402,6 +402,7 @@ function renderWeather() {
         <div class="title"><span>${esc(b.name)}</span><span class="light"><span class="dot l${level}"></span>${t("level" + level)}</span></div>
         <p class="muted small" style="margin:4px 0 0">${runText}${level >= 3 ? ` · <strong>${t("switchBay")}</strong>` : ""}</p>
         ${jr ? `<div class="jelly">🪼 ${t("jellyReported", { name: esc(jr.name), time: fmtTime(jr.at) })}</div>` : ""}
+        ${b.strongWind ? `<div class="warn">${t("strongWind", { kmh: Math.round(b.maxOnshoreKmh) })}</div>` : ""}
         ${b.thunder ? `<div class="warn">${t("thunder")}</div>` : ""}
         <div class="wx">
           <div><span class="v">${wx.airTemp != null ? Math.round(wx.airTemp) + "°" : "–"}</span><span class="k">${t("air")}</span></div>

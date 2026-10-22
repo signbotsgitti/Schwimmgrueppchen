@@ -47,12 +47,20 @@ export const BAYS = [
 ];
 
 export const AMPEL = {
-  // Wind zählt erst ab dieser Stärke (km/h) als auflandig
+  // Wind zählt erst ab dieser Stärke (km/h) als auflandig (ca. 3 Bft; 10–25 km/h = idealer Quallentransport)
   minWindKmh: 10,
-  // Stunden auflandig am Stück -> Stufe
+  // Stunden auflandig am Stück -> Stufe (12–24 h bis ein Schwarm den Strand erreicht; mehrtägig = Bloom)
   thresholds: { orange: 12, red: 24, redAlert: 48 },
-  // Abklingen: pro so vielen Stunden ohne auflandigen Wind sinkt die Stufe um eins
-  decayHours: 12,
+  // Abklingen, getrennt nach Ursache:
+  // - aktiver ablandiger Wind (>= minWindKmh aus dem gegenüberliegenden Sektor) treibt Quallen "innerhalb weniger
+  //   Stunden" hinaus -> eine Stufe je decayHoursOffshore
+  // - Flaute oder Seitenwind: Schwarm bleibt träge liegen -> eine Stufe je decayHoursCalm
+  decayHoursOffshore: 4,
+  decayHoursCalm: 12,
+  // Starkwind: ab dieser Stärke (km/h, ca. 6 Bft) zerreißt die Brandung Schwärme; unsichtbare Tentakelfragmente
+  // der Leuchtqualle bleiben im Flachwasser -> eigener Warnhinweis, wenn in den letzten Stunden auflandig so stark
+  strongWindKmh: 40,
+  strongWindLookbackHours: 12,
   // Kurze Flauten bis zu dieser Länge unterbrechen die "am Stück"-Zählung nicht
   gapToleranceHours: 2,
   // Betrachtungsfenster: Vergangenheit (Tage) + heute bis zu dieser Stunde

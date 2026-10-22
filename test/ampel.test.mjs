@@ -1,12 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inSector, isOnshore, levelForRun, computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "../public/lib/ampel.js";
+import { inSector, isOnshore, isOffshore, oppositeSector, levelForRun, computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "../public/lib/ampel.js";
 import { evaluate } from "../public/lib/weather.js";
 import { AMPEL, BAYS } from "../public/lib/config.js";
 
 const S = { from: 135, to: 225 }; // Binisafúa (Süden)
 const on = (n, speed = 20, dir = 180) => Array.from({ length: n }, (_, i) => ({ time: `t${i}`, speed, dir }));
-const off = (n, speed = 20, dir = 0) => on(n, speed, dir);
+const off = (n, speed = 20, dir = 0) => on(n, speed, dir);      // aktiver ablandiger Wind (N bei Südsektor)
+const calm = (n) => on(n, 3, 180);                               // Flaute
+const cross = (n, speed = 20) => on(n, speed, 90);               // Seitenwind (O bei Südsektor)
 
 test("inSector: normaler Sektor und Wrap über 0°", () => {
   assert.equal(inSector(180, 135, 225), true);
@@ -57,19 +59,46 @@ test("computeLevel: ablandiger Wind zählt nicht", () => {
   assert.equal(computeLevel(off(60), S).level, 0);
 });
 
-test("Abklingen: Winddrehung senkt nicht sofort auf grün, sondern eine Stufe je 12 h", () => {
+test("oppositeSector / isOffshore: Gegenrichtung mit Wrap", () => {
+  assert.deepEqual(oppositeSector({ from: 135, to: 225 }), { from: 315, to: 45 });
+  assert.equal(isOffshore({ speed: 20, dir: 0 }, S), true);
+  assert.equal(isOffshore({ speed: 20, dir: 20 }, S), true);
+  assert.equal(isOffshore({ speed: 20, dir: 90 }, S), false);   // Seitenwind
+  assert.equal(isOffshore({ speed: 5, dir: 0 }, S), false);     // zu schwach
+});
+
+test("Abklingen bei aktivem ablandigem Wind: eine Stufe je 4 h, nicht sofort grün", () => {
   const base = on(48); // rot!
   assert.equal(computeLevel([...base, ...off(1)], S).level, 3);
-  assert.equal(computeLevel([...base, ...off(11)], S).level, 3);
-  assert.equal(computeLevel([...base, ...off(12)], S).level, 2);
-  assert.equal(computeLevel([...base, ...off(23)], S).level, 2);
-  assert.equal(computeLevel([...base, ...off(24)], S).level, 1);
-  assert.equal(computeLevel([...base, ...off(36)], S).level, 0);
+  assert.equal(computeLevel([...base, ...off(3)], S).level, 3);
+  assert.equal(computeLevel([...base, ...off(4)], S).level, 2);
+  assert.equal(computeLevel([...base, ...off(8)], S).level, 1);
+  assert.equal(computeLevel([...base, ...off(12)], S).level, 0);
   assert.equal(computeLevel([...base, ...off(100)], S).level, 0);
 });
 
-test("Abklingen: Flaute (unter Mindeststärke) wirkt wie ablandig", () => {
-  assert.equal(computeLevel([...on(24), ...on(12, 5)], S).level, 1);
+test("Abklingen bei Flaute oder Seitenwind: langsam, eine Stufe je 12 h", () => {
+  const base = on(48);
+  assert.equal(computeLevel([...base, ...calm(11)], S).level, 3);
+  assert.equal(computeLevel([...base, ...calm(12)], S).level, 2);
+  assert.equal(computeLevel([...base, ...calm(24)], S).level, 1);
+  assert.equal(computeLevel([...base, ...calm(36)], S).level, 0);
+  assert.equal(computeLevel([...base, ...cross(12)], S).level, 2);
+  assert.equal(computeLevel([...on(24), ...on(12, 5)], S).level, 1); // Flaute unter Mindeststärke
+});
+
+test("Abklingen gemischt: 6 h Flaute + 2 h ablandig = eine Stufe", () => {
+  assert.equal(computeLevel([...on(48), ...calm(6), ...off(2)], S).level, 2);
+  assert.equal(computeLevel([...on(48), ...calm(6), ...off(1)], S).level, 3);
+});
+
+test("Starkwind: auflandig >= 40 km/h in den letzten 12 h setzt den Hinweis", () => {
+  const r = computeLevel([...on(20, 45)], S);
+  assert.equal(r.strongWind, true); assert.equal(r.maxOnshoreKmh, 45);
+  assert.equal(computeLevel([...on(20, 25)], S).strongWind, false);
+  assert.equal(computeLevel([...on(20, 45), ...calm(12)], S).strongWind, false); // zu lange her
+  assert.equal(computeLevel([...on(20, 45), ...calm(11)], S).strongWind, true);
+  assert.equal(computeLevel([...off(20, 60)], S).strongWind, false); // stark, aber ablandig
 });
 
 test("Kurze Flaute innerhalb der Toleranz unterbricht den Lauf nicht", () => {
@@ -83,10 +112,10 @@ test("Längere Flaute setzt den Lauf zurück", () => {
 });
 
 test("Erneut auflandig nach Abklingen: Stufe steigt erst, wenn neuer Lauf höher ist", () => {
-  // 48 h rot! -> 24 h ablandig => Stufe 1 -> dann 6 h auflandig: bleibt 1, nach 12 h weiterhin 1, nach 24 h -> 2
-  assert.equal(computeLevel([...on(48), ...off(24), ...on(6)], S).level, 1);
-  assert.equal(computeLevel([...on(48), ...off(24), ...on(12)], S).level, 1);
-  assert.equal(computeLevel([...on(48), ...off(24), ...on(24)], S).level, 2);
+  // 48 h rot! -> 24 h Flaute => Stufe 1 -> dann 6 h auflandig: bleibt 1, nach 12 h weiterhin 1, nach 24 h -> 2
+  assert.equal(computeLevel([...on(48), ...calm(24), ...on(6)], S).level, 1);
+  assert.equal(computeLevel([...on(48), ...calm(24), ...on(12)], S).level, 1);
+  assert.equal(computeLevel([...on(48), ...calm(24), ...on(24)], S).level, 2);
 });
 
 test("Quallenmeldung: hebt mindestens auf rot, senkt nie", () => {
