@@ -1,9 +1,9 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.4.2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.4.2";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.4.2";
-import { loadWeather } from "./lib/weather.js?v=2.4.2";
-import { buildXlsx } from "./lib/xlsx.js?v=2.4.2";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.4.3";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.4.3";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.4.3";
+import { loadWeather } from "./lib/weather.js?v=2.4.3";
+import { buildXlsx } from "./lib/xlsx.js?v=2.4.3";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -394,7 +394,8 @@ function renderWeather() {
     const jr = jellyState[b.id] ?? b.jellyReport;
     const level = jr ? Math.max(b.level, 2) : b.level;
     const wx = b.weather;
-    const arrow = wx.windDir != null ? `<span class="arrow" style="transform:rotate(${(wx.windDir + 180) % 360}deg)">⬆︎</span>` : "";
+    // Pfeil zeigt dorthin, WOHER der Wind kommt (wie ein Kompasszeiger auf die Quelle), Text "aus S"
+    const arrow = wx.windDir != null ? `<span class="arrow" style="transform:rotate(${wx.windDir % 360}deg)">⬆︎</span>` : "";
     const runText = b.onshoreRun > 0 ? t("onshoreHours", { h: b.onshoreRun }) : t("calmSince", { h: b.offshoreHours });
     return `
       <div class="card bay l${level}">
@@ -406,7 +407,7 @@ function renderWeather() {
           <div><span class="v">${wx.airTemp != null ? Math.round(wx.airTemp) + "°" : "–"}</span><span class="k">${t("air")}</span></div>
           <div><span class="v">${wx.waterTemp != null ? Math.round(wx.waterTemp) + "°" : "–"}</span><span class="k">${t("water")}</span></div>
           <div><span class="v">${wx.waveHeight != null ? wx.waveHeight.toFixed(1) + " m" : "–"}</span><span class="k">${t("waves")}</span></div>
-          <div><span class="v">${arrow} ${wx.windKmh != null ? Math.round(wx.windKmh) : "–"}</span><span class="k">${t("wind")} km/h${wx.windDir != null ? " · " + compass(wx.windDir) : ""}</span></div>
+          <div><span class="v">${arrow} ${wx.windKmh != null ? Math.round(wx.windKmh) : "–"}</span><span class="k">km/h${wx.windDir != null ? ` ${t("windFrom")} ${compass(wx.windDir)}` : ""}</span></div>
         </div>
         <div class="row" style="margin-top:10px"><button class="btn sm" data-jelly="${b.id}">🪼 ${t("jellyBtn")}</button></div>
       </div>`;
