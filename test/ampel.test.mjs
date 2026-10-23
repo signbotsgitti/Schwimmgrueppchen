@@ -217,3 +217,16 @@ test("Windsektoren je Bucht entsprechen der Ortskenntnis", () => {
   assert.ok(on("binisafua", 180) && !on("binisafua", 90) && !on("binisafua", 270), "Binisafúa: Südwind");
   assert.ok(on("sonbou", 180) && on("sonbou", 225) && on("sonbou", 270) && !on("sonbou", 135) && !on("sonbou", 315), "Son Bou: Süd bis West");
 });
+
+test("evaluate: Windverlauf der letzten 24 h mit Klassifikation und Vorhersage-Kennzeichen", () => {
+  const mixed = fakeForecast((i, d, h) => (d === "2026-10-21" && h < 8) ? { speed: 20, dir: 180 } : (d === "2026-10-21" && h < 12) ? { speed: 20, dir: 0 } : { speed: 3, dir: 90 });
+  const out = evaluate(BAYS.map(() => mixed), [], {}, now); // now = 10:00, cutoff 16:00
+  const hist = out.bays.binisafua.history;
+  assert.equal(hist.length, 24);
+  assert.equal(hist.at(-1).time, "2026-10-21T16:00");
+  assert.equal(hist.find((h) => h.time === "2026-10-21T05:00").kind, "on");
+  assert.equal(hist.find((h) => h.time === "2026-10-21T09:00").kind, "off");
+  assert.equal(hist.find((h) => h.time === "2026-10-21T13:00").kind, "calm");
+  assert.equal(hist.find((h) => h.time === "2026-10-21T09:00").forecast, false);
+  assert.equal(hist.find((h) => h.time === "2026-10-21T11:00").forecast, true);
+});

@@ -1,7 +1,7 @@
 // Open-Meteo abrufen und je Bucht auswerten. Läuft im Browser (Open-Meteo erlaubt CORS) und in Tests.
-import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js?v=2.5.2";
-import { computeLevel, applyJellyReport, recommendBay, clipToCutoff } from "./ampel.js?v=2.5.2";
-import { localParts } from "./time.js?v=2.5.2";
+import { BAYS, AMPEL, THUNDER, TIMEZONE } from "./config.js?v=2.6.0";
+import { computeLevel, applyJellyReport, recommendBay, clipToCutoff, isOnshore, isOffshore } from "./ampel.js?v=2.6.0";
+import { localParts } from "./time.js?v=2.6.0";
 
 function buildUrls() {
   const lat = BAYS.map((b) => b.lat).join(",");
@@ -61,6 +61,12 @@ export function evaluate(forecasts, marines, jelly = {}, now = new Date(), targe
     const sea = hourlyRows(mr.hourly, { wave: "wave_height", sst: "sea_surface_temperature" });
     const windWindow = clipToCutoff(wind, cutoffIso);
     const base = computeLevel(windWindow, bay.onshore);
+    // Letzte 24 Stunden des Fensters zur Nachvollziehbarkeit (Vergangenheit + Vorhersage bis Cutoff)
+    const history = windWindow.slice(-24).map((h) => ({
+      time: h.time, speed: h.speed, dir: h.dir,
+      kind: isOnshore(h, bay.onshore) ? "on" : isOffshore(h, bay.onshore) ? "off" : h.speed != null && h.speed >= AMPEL.minWindKmh ? "cross" : "calm",
+      forecast: h.time > nowIso,
+    }));
     const result = applyJellyReport(base, Boolean(jelly[bay.id]));
     const at = nowIso < cutoffIso ? cutoffIso : nowIso; // Wetter für den Treffzeitpunkt zeigen
     const w = rowAt(wind, at);
@@ -71,6 +77,7 @@ export function evaluate(forecasts, marines, jelly = {}, now = new Date(), targe
       id: bay.id, name: bay.name, lat: bay.lat, lon: bay.lon, onshore: bay.onshore,
       ...result,
       jellyReport: jelly[bay.id] ?? null,
+      history,
       weather: {
         at: w?.time ?? null,
         airTemp: w?.temp ?? null, windKmh: w?.speed ?? null, windDir: w?.dir ?? null,

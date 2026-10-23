@@ -1,10 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.5.2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.5.2";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.5.2";
-import { loadWeather } from "./lib/weather.js?v=2.5.2";
-import { buildXlsx } from "./lib/xlsx.js?v=2.5.2";
-import { renderHelp } from "./help.js?v=2.5.2";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.6.0";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.6.0";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.6.0";
+import { loadWeather } from "./lib/weather.js?v=2.6.0";
+import { buildXlsx } from "./lib/xlsx.js?v=2.6.0";
+import { renderHelp } from "./help.js?v=2.6.0";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -380,6 +380,7 @@ function renderToday() {
     const inp = $("#away-msg"); const text = inp.value.trim(); if (!text) return;
     await act("api_message", { p_text: `✈️ ${text}` }); inp.value = ""; toast("✓");
   });
+  $("#view-today").querySelectorAll(".strip .h").forEach((el) => el.addEventListener("click", () => toast(el.dataset.tip)));
   $("#view-today").querySelectorAll("[data-jelly]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.jelly;
     if (confirm(t("jellyConfirm", { bay: bayName(id) }))) { await act("api_jelly", { p_bay: id }); refreshWeather(true); }
@@ -411,6 +412,8 @@ function renderWeather() {
           <div><span class="v">${wx.waveHeight != null ? wx.waveHeight.toFixed(1) + " m" : "–"}</span><span class="k">${t("waves")}</span></div>
           <div><span class="v">${arrow} ${wx.windKmh != null ? Math.round(wx.windKmh) : "–"}</span><span class="k">km/h${wx.windDir != null ? ` ${t("windFrom")} ${compass(wx.windDir)}` : ""}</span></div>
         </div>
+        ${b.history?.length ? `<div class="strip" aria-label="${t("windHistory")}">${b.history.map((h) => `<span class="h ${h.kind}${h.forecast ? " fc" : ""}" data-tip="${esc(h.time.slice(5, 10).split("-").reverse().join("."))} ${esc(h.time.slice(11))} · ${h.speed != null ? Math.round(h.speed) : "–"} km/h ${t("windFrom")} ${h.dir != null ? compass(h.dir) + " (" + Math.round(h.dir) + "°)" : "–"}${h.forecast ? " · " + t("forecast") : ""}"></span>`).join("")}</div>
+        <div class="legend small"><span><i class="on"></i>${t("legOn")}</span><span><i class="off"></i>${t("legOff")}</span><span><i class="cross"></i>${t("legCross")}</span><span><i class="calm"></i>${t("legCalm")}</span><span>${t("windHistoryHint")}</span></div>` : ""}
         <div class="row" style="margin-top:10px"><button class="btn sm" data-jelly="${b.id}">🪼 ${t("jellyBtn")}</button></div>
       </div>`;
   }).join("");
