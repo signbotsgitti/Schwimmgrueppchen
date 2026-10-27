@@ -6,9 +6,12 @@ alter table public.day_settings alter column meet_time drop not null;
 alter table public.day_settings add column if not exists meet_bay text;
 alter table public.day_settings add column if not exists bay_by bigint references public.members(id);
 
--- Standard-Treffzeit (muss mit DEFAULT_MEET_TIME in public/lib/config.js übereinstimmen)
+-- Standard-Treffzeit und -Bucht: aus settings, sonst Fallback (wie DEFAULT_* in public/lib/config.js)
 create or replace function public.app_default_meet_time() returns text
-language sql immutable as $$ select '16:15' $$;
+language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_time'), '16:15') $$;
+
+create or replace function public.app_default_bay() returns text
+language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_bay'), 'binisafua') $$;
 
 -- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
 create or replace function public.app_target_day() returns date
@@ -62,6 +65,7 @@ begin
       from public.members m left join public.attendance a on a.member_id = m.id and a.day = d
       where m.active), '[]'::jsonb),
     'meet', jsonb_build_object('time', v_time, 'proposedBy', v_time_by, 'bay', v_bay, 'bayBy', v_bay_by),
+    'defaults', jsonb_build_object('time', public.app_default_meet_time(), 'bay', public.app_default_bay()),
     'messages', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.id) from (
         select msg.id, msg.kind, msg.text, msg.created_at, msg.member_id, m.name

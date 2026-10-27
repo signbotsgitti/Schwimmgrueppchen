@@ -1,5 +1,5 @@
 // Erklärung der Quallen-Ampel, alle Zahlen kommen aus der Konfiguration.
-import { BAYS, AMPEL, THUNDER, DEFAULT_MEET_TIME } from "./lib/config.js?v=2.6.0";
+import { BAYS, AMPEL, THUNDER, DEFAULT_MEET_TIME } from "./lib/config.js?v=2.7.0";
 
 const HELP = {
   de: {
@@ -55,7 +55,7 @@ const HELP = {
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /** HTML der Erklärung in der gewünschten Sprache. */
-export function renderHelp(lang) {
+export function renderHelp(lang, defaults = {}) {
   const h = HELP[lang] ?? HELP.de;
   const compass = (deg) => h.compass[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
   const bays = `<ul>${BAYS.map((b) => `<li><strong>${esc(b.name)}</strong>: ${compass(b.onshore.from)}–${compass(b.onshore.to)} (${b.onshore.from}°–${b.onshore.to}°)</li>`).join("")}</ul>`;
@@ -63,7 +63,7 @@ export function renderHelp(lang) {
     min: AMPEL.minWindKmh, orange: AMPEL.thresholds.orange, red: AMPEL.thresholds.red, redAlert: AMPEL.thresholds.redAlert,
     gap: AMPEL.gapToleranceHours, decayOff: AMPEL.decayHoursOffshore, decayCalm: AMPEL.decayHoursCalm,
     strong: AMPEL.strongWindKmh, look: AMPEL.strongWindLookbackHours, pastDays: AMPEL.pastDays, cutoff: String(AMPEL.cutoffHour).padStart(2, "0"),
-    meet: DEFAULT_MEET_TIME, tFrom: THUNDER.fromHour, tTo: THUNDER.toHour, order: BAYS.map((b) => b.name).join(" → "),
+    meet: defaults.time ?? DEFAULT_MEET_TIME, tFrom: THUNDER.fromHour, tTo: THUNDER.toHour, order: BAYS.map((b) => b.name).join(" → "),
   };
   const fill = (s) => esc(s).replace(/\{(\w+)\}/g, (_, k) => (k === "bays" ? bays : esc(vars[k])));
   return `<div class="card help"><h2>${esc(h.title)}</h2>${h.sections.map(([head, text]) => `<h3>${esc(head)}</h3><p>${fill(text)}</p>`).join("")}</div>`;

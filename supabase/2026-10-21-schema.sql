@@ -58,6 +58,13 @@ create table if not exists public.jelly_reports (
 );
 create index if not exists idx_jelly_day on public.jelly_reports(day, bay);
 
+-- Einstellungen (Admin): Standard-Treffzeit und Standard-Bucht
+create table if not exists public.settings (
+  key         text primary key,
+  value       text not null,
+  updated_at  timestamptz not null default now()
+);
+
 -- Sprachen nachträglich erweitern (für bestehende Datenbanken)
 alter table public.members drop constraint if exists members_lang_check;
 alter table public.members add constraint members_lang_check check (lang in ('de','en','fr'));
@@ -67,6 +74,7 @@ alter table public.attendance    enable row level security;
 alter table public.day_settings  enable row level security;
 alter table public.messages      enable row level security;
 alter table public.jelly_reports enable row level security;
+alter table public.settings      enable row level security;
 revoke all on all tables in schema public from anon, authenticated;
 
 -- ---------------------------------------------------------------------
@@ -75,9 +83,12 @@ revoke all on all tables in schema public from anon, authenticated;
 create or replace function public.app_today() returns date
 language sql stable as $$ select (now() at time zone 'Europe/Madrid')::date $$;
 
--- Standard-Treffzeit (muss mit DEFAULT_MEET_TIME in public/lib/config.js übereinstimmen)
+-- Standard-Treffzeit und -Bucht: aus settings, sonst Fallback (wie DEFAULT_* in public/lib/config.js)
 create or replace function public.app_default_meet_time() returns text
-language sql immutable as $$ select '16:15' $$;
+language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_time'), '16:15') $$;
+
+create or replace function public.app_default_bay() returns text
+language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_bay'), 'binisafua') $$;
 
 -- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
 create or replace function public.app_target_day() returns date
@@ -141,6 +152,7 @@ begin
       from public.members m left join public.attendance a on a.member_id = m.id and a.day = d
       where m.active), '[]'::jsonb),
     'meet', jsonb_build_object('time', v_time, 'proposedBy', v_time_by, 'bay', v_bay, 'bayBy', v_bay_by),
+    'defaults', jsonb_build_object('time', public.app_default_meet_time(), 'bay', public.app_default_bay()),
     'messages', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.id) from (
         select msg.id, msg.kind, msg.text, msg.created_at, msg.member_id, m.name
@@ -293,6 +305,25 @@ begin
   );
 end $$;
 
+-- Admin: Standardwerte setzen (null = unverändert)
+create or replace function public.api_admin_settings(p_token text, p_time text default null, p_bay text default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare me public.members := public.app_me(p_token);
+begin
+  if not me.is_admin then raise exception 'Nur Admin' using errcode = 'PT403'; end if;
+  if p_time is not null then
+    if p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then raise exception 'time muss HH:MM sein' using errcode = 'PT400'; end if;
+    insert into public.settings (key, value) values ('meet_time', p_time)
+    on conflict (key) do update set value = excluded.value, updated_at = now();
+  end if;
+  if p_bay is not null then
+    if p_bay !~ '^[a-z0-9_-]{2,30}$' then raise exception 'Unbekannte Bucht' using errcode = 'PT400'; end if;
+    insert into public.settings (key, value) values ('meet_bay', p_bay)
+    on conflict (key) do update set value = excluded.value, updated_at = now();
+  end if;
+  return public.app_state(me);
+end $$;
+
 create or replace function public.api_admin_members(p_token text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare me public.members := public.app_me(p_token);
@@ -334,5 +365,5 @@ grant execute on function
   public.api_state(text), public.api_attendance(text, text), public.api_time(text, text), public.api_bay(text, text),
   public.api_message(text, text), public.api_jelly(text, text), public.api_invite(text, text, text),
   public.api_me(text, text), public.api_history(text, int), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text),
-  public.api_admin_attendance(text, bigint, text, text)
+  public.api_admin_attendance(text, bigint, text, text), public.api_admin_settings(text, text, text)
 to anon, authenticated;

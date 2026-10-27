@@ -81,7 +81,7 @@ test("Zieltag: bis 1 h nach Treffzeit heute, danach morgen (geänderte Treffzeit
   const s = await rpc(db, "api_state", { p_token: K });
   assert.ok(s.day === s.today || new Date(s.day) - new Date(s.today) === 86400000, "day ist heute oder morgen");
   const fnDay = (await db.query("select public.app_target_day() = public.app_today() as same, public.app_default_meet_time() as mt")).rows[0];
-  assert.equal(fnDay.mt, "16:15"); assert.equal(typeof fnDay.same, "boolean");
+  assert.equal(typeof fnDay.same, "boolean"); assert.match(fnDay.mt, /^\d\d:\d\d$/);
 });
 
 test("history: Tage mit Einträgen, Mitglieder, Zeitraum; Update-Skript läuft", async () => {
@@ -110,6 +110,23 @@ test("admin attendance: Status für andere setzen, auch für vergangene Tage; nu
   await fails(rpc(db, "api_admin_attendance", { p_token: K, p_member_id: 2, p_status: "yes", p_day: "kein-datum" }), 400);
   const { readFileSync } = await import("node:fs");
   await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-ueberraschung.sql", import.meta.url), "utf8"));
+});
+
+test("admin settings: Standardzeit und -bucht setzen, Validierung, nur Admin; Update-Skript läuft", async () => {
+  let s = await rpc(db, "api_state", { p_token: K });
+  assert.deepEqual(s.defaults, { time: "16:15", bay: "binisafua" });
+  await fails(rpc(db, "api_admin_settings", { p_token: M, p_time: "17:00", p_bay: null }), 403);
+  s = await rpc(db, "api_admin_settings", { p_token: K, p_time: "17:00", p_bay: null });
+  assert.deepEqual(s.defaults, { time: "17:00", bay: "binisafua" });
+  s = await rpc(db, "api_admin_settings", { p_token: K, p_time: null, p_bay: "sonbou" });
+  assert.deepEqual(s.defaults, { time: "17:00", bay: "sonbou" });
+  await fails(rpc(db, "api_admin_settings", { p_token: K, p_time: "25:00", p_bay: null }), 400);
+  await fails(rpc(db, "api_admin_settings", { p_token: K, p_time: null, p_bay: "X!" }), 400);
+  assert.equal((await db.query("select public.app_default_meet_time() as t")).rows[0].t, "17:00");
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-10-27-update-standardwerte.sql", import.meta.url), "utf8"));
+  assert.deepEqual((await rpc(db, "api_state", { p_token: K })).defaults, { time: "17:00", bay: "sonbou" });
+  await rpc(db, "api_admin_settings", { p_token: K, p_time: "16:15", p_bay: "binisafua" });
 });
 
 test("message: speichert bereinigt, leere Nachricht abgelehnt", async () => {

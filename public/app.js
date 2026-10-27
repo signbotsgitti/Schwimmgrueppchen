@@ -1,10 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.6.0";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.6.0";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.6.0";
-import { loadWeather } from "./lib/weather.js?v=2.6.0";
-import { buildXlsx } from "./lib/xlsx.js?v=2.6.0";
-import { renderHelp } from "./help.js?v=2.6.0";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.7.0";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.7.0";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.7.0";
+import { loadWeather } from "./lib/weather.js?v=2.7.0";
+import { buildXlsx } from "./lib/xlsx.js?v=2.7.0";
+import { renderHelp } from "./help.js?v=2.7.0";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -51,6 +51,8 @@ async function rpc(fn, params = {}) {
   return data;
 }
 const baseUrl = () => location.origin + location.pathname.replace(/[^/]*$/, "");
+const defTime = () => S.state?.defaults?.time ?? DEFAULT_MEET_TIME;
+const defBay = () => S.state?.defaults?.bay ?? DEFAULT_BAY;
 const linkFor = (tok) => `${baseUrl()}?u=${tok}`;
 
 function setState(state) {
@@ -287,7 +289,7 @@ async function exportXlsx(st, h) {
   const daysRows = [[t("colDay"), t("colBay"), t("colTime"), ...st.members.map((m) => m.name)]];
   for (const d of st.days) {
     const info = st.dayInfo[d]; if (!info) continue;
-    daysRows.push([d, info.bay ? bayName(info.bay) : bayName(DEFAULT_BAY), info.time ?? DEFAULT_MEET_TIME, ...st.members.map((m) => (m.days[d] ? label[m.days[d]] : ""))]);
+    daysRows.push([d, info.bay ? bayName(info.bay) : bayName(defBay()), info.time ?? defTime(), ...st.members.map((m) => (m.days[d] ? label[m.days[d]] : ""))]);
   }
   const rankRows = [[t("colName"), t("colYes"), t("colNo"), t("colMaybe"), t("colAway"), t("colRate")], ...st.members.map((m) => [m.name, m.yes, m.no, m.maybe, m.away, st.swimDays ? Math.round((m.yes / st.swimDays) * 100) / 100 : 0])];
   rankRows.push([]); rankRows.push([t("swimDays"), st.swimDays]); rankRows.push([t("period"), `${h.from} – ${h.to}`]);
@@ -308,9 +310,9 @@ function renderToday() {
   const mine = st.members.find((m) => m.id === me.id)?.attendance?.status ?? "open";
   const blocked = S.onIsland === false;
   const isTomorrow = st.today && st.day > st.today;
-  const meetBayId = st.meet.bay ?? DEFAULT_BAY;
+  const meetBayId = st.meet.bay ?? defBay();
   const meetBay = bayName(meetBayId);
-  const meetTime = st.meet.time ?? DEFAULT_MEET_TIME;
+  const meetTime = st.meet.time ?? defTime();
   const stamp = S.offline && S.stateAt ? `<p class="warn small">${t("offline")}: ${fmtDateTime(S.stateAt)}</p>` : "";
 
   const choice = blocked
@@ -458,6 +460,14 @@ function renderMore() {
     <div class="row"><button class="btn primary" id="inv-share">📤 ${t("inviteShare")}</button><button class="btn" id="inv-copy">${t("copyLink")}</button></div>` : "";
   const loc = S.onIsland === null ? t("locationUnknown") : S.onIsland ? t("locationOnIsland") : t("locationOff");
   const admin = st.me.isAdmin ? `
+    <div class="card"><h2>${t("admin")} · ${t("defaults")}</h2>
+      <p class="muted small">${t("defaultsHint")}</p>
+      <div class="pickers">
+        <label class="picker">📍 <select id="def-bay">${BAYS.map((b) => `<option value="${b.id}" ${b.id === defBay() ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label>
+        <label class="picker">⏰ <input type="time" id="def-time" value="${esc(defTime())}" step="300"></label>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="def-save">${t("save")}</button></div>
+    </div>
     <div class="card"><h2>${t("admin")} · ${t("members")}</h2>
       ${S.admin ? `<ul class="members">${S.admin.members.map((m) => `
         <li style="flex-direction:column;align-items:stretch;gap:6px">
@@ -482,7 +492,7 @@ function renderMore() {
     </div>
     ${admin}
     <div class="card"><h2>${t("location")}</h2><p class="small">${loc}</p><p class="muted small">${t("install")}</p></div>
-    ${renderHelp(S.lang)}`;
+    ${renderHelp(S.lang, { time: defTime(), bay: bayName(defBay()) })}`;
 
   $("#view-more").querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => { setLang(b.dataset.lang); render(); }));
   $("#inv-create").addEventListener("click", async () => {
@@ -496,6 +506,12 @@ function renderMore() {
   });
   $("#inv-copy")?.addEventListener("click", () => copy(S.invite.link));
   $("#adm-load")?.addEventListener("click", loadAdmin);
+  $("#def-save")?.addEventListener("click", async () => {
+    const time = $("#def-time").value, bay = $("#def-bay").value;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { toast("HH:MM"); return; }
+    document.activeElement?.blur();
+    await act("api_admin_settings", { p_time: time, p_bay: bay }); toast(`✓ ${bayName(bay)} · ${time}`);
+  });
   $("#view-more").querySelectorAll("[data-adm]").forEach((b) => b.addEventListener("click", async () => {
     const id = Number(b.dataset.id), m = S.admin.members.find((x) => x.id === id), action = b.dataset.adm;
     if (action === "copy") return copy(m.link);
