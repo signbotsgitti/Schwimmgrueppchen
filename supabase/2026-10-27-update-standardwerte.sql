@@ -10,47 +10,12 @@ create table if not exists public.settings (
 alter table public.settings enable row level security;
 revoke all on public.settings from anon, authenticated;
 
--- Standard-Treffzeit und -Bucht: aus settings, sonst Fallback (wie DEFAULT_* in public/lib/config.js)
 create or replace function public.app_default_meet_time() returns text
 language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_time'), '16:15') $$;
 
 create or replace function public.app_default_bay() returns text
 language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_bay'), 'binisafua') $$;
 
--- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
-create or replace function public.app_target_day() returns date
-language plpgsql stable as $$
-declare
-  now_local timestamp := now() at time zone 'Europe/Madrid';
-  d date := now_local::date;
-  mt text;
-begin
-  select meet_time into mt from public.day_settings where day = d;
-  if now_local >= (d + coalesce(mt, public.app_default_meet_time())::time + interval '1 hour') then
-    return d + 1;
-  end if;
-  return d;
-end $$;
-
-create or replace function public.app_default_bay() returns text
-language sql stable as $$ select coalesce((select value from public.settings where key = 'meet_bay'), 'binisafua') $$;
-
--- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
-create or replace function public.app_target_day() returns date
-language plpgsql stable as $$
-declare
-  now_local timestamp := now() at time zone 'Europe/Madrid';
-  d date := now_local::date;
-  mt text;
-begin
-  select meet_time into mt from public.day_settings where day = d;
-  if now_local >= (d + coalesce(mt, public.app_default_meet_time())::time + interval '1 hour') then
-    return d + 1;
-  end if;
-  return d;
-end $$;
-
--- Zieltag: bis 1 h nach der (ggf. geänderten) Treffzeit ist es "heute", danach "morgen".
 create or replace function public.app_target_day() returns date
 language plpgsql stable as $$
 declare
@@ -101,7 +66,6 @@ begin
   );
 end $$;
 
--- Admin: Standardwerte setzen (null = unverändert)
 create or replace function public.api_admin_settings(p_token text, p_time text default null, p_bay text default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare me public.members := public.app_me(p_token);
