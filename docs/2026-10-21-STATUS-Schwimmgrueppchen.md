@@ -21,6 +21,7 @@
 - Ungelesene Pinnwand-Nachrichten: Badging API + Zähler am Tab
 - Zieltag: `app_target_day()` in SQL liefert morgen, sobald 1 h nach der Treffzeit (Standard 16:15 auch in SQL hinterlegt) vergangen ist; Status, Treffzeit, Bucht, Quallen und Wetterfenster folgen dem Zieltag
 - Status „maybe“ (Überraschung) als eigener Wert; Admin kann per `api_admin_attendance` den Status anderer setzen (Liste: Zieltag; Statistik-Kalender: beliebiger Tag, Nachtrag für Personen ohne Link)
+- Fotos in der Pinnwand: Browser verkleinert auf 1280 px JPEG, Upload per Storage-REST in Bucket `pinnwand` (öffentlich lesbar, Insert nur JPEG ≤ 2 MB mit Pfadmuster Tag/hex.jpg), Pfad in `messages.attachment`; Lightbox in der App. Keine Videos (Free-Tier-Limits).
 - Statistik-Tab: `api_history` (letzte 30/90/365 Tage), Rangliste nach Zusagen, Kalenderraster (Statusfarben), Excel-Export über eigenen XLSX-Writer `public/lib/xlsx.js` (ohne Abhängigkeiten)
 - Tests: 21 Ampel + 11 SQL-API auf PGlite (Postgres in WASM), GitHub Actions führt sie vor jedem Deploy aus
 
@@ -39,7 +40,8 @@
 - [x] `supabase/2026-10-21-update-bucht.sql` ausgeführt (Bucht pro Tag wählbar)
 - [x] Historie-Update ausgeführt (komplettes Schema erneut eingespielt)
 - [x] Status „Überraschung“ und Admin-Nachtrag eingespielt
-- [ ] `supabase/2026-10-27-update-standardwerte.sql` oder komplettes Schema ausführen (Standardwerte als Admin-Einstellung)
+- [x] Standardwerte-Update eingespielt
+- [ ] `supabase/2026-10-28-update-fotos.sql` oder komplettes Schema ausführen (Fotos: Spalte, Bucket, Policies)
 - [x] Windsektoren nach Ortskenntnis gesetzt (2026-10-22): Mesquida E, Alcaufar SE, Binisafúa S, Son Bou S–W
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
 - [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h, Abklingen 4/12 h) mit Erfahrung abgleichen
@@ -48,7 +50,7 @@
 ## Pfade
 - Frontend: `public/index.html`, `public/app.js`, `public/i18n.js`, `public/styles.css`, `public/sw.js`, `public/manifest.webmanifest`, `public/supabase-config.js`
 - Logik/Konfig: `public/lib/config.js`, `public/lib/ampel.js`, `public/lib/weather.js`, `public/lib/time.js`
-- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`, `supabase/2026-10-21-update-historie.sql`, `supabase/2026-10-21-update-ueberraschung.sql`, `supabase/2026-10-27-update-standardwerte.sql`
+- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`, `supabase/2026-10-21-update-historie.sql`, `supabase/2026-10-21-update-ueberraschung.sql`, `supabase/2026-10-27-update-standardwerte.sql`, `supabase/2026-10-28-update-fotos.sql`
 - Skripte: `scripts/seed.mjs`, `scripts/dev-server.mjs`, `scripts/make-icons.mjs`, `scripts/weather-mock.mjs`
 - Tests: `test/ampel.test.mjs`, `test/api.test.mjs`, `test/_pg.mjs`
 - CI/Deploy: `.github/workflows/pages.yml`

@@ -129,11 +129,18 @@ test("admin settings: Standardzeit und -bucht setzen, Validierung, nur Admin; Up
   await rpc(db, "api_admin_settings", { p_token: K, p_time: "16:15", p_bay: "binisafua" });
 });
 
-test("message: speichert bereinigt, leere Nachricht abgelehnt", async () => {
+test("message: speichert bereinigt, leere Nachricht abgelehnt, Foto-Anhang mit Validierung", async () => {
   const s = await rpc(db, "api_message", { p_token: K, p_text: "  Hallo   <b>Gruppe</b>  " });
   const last = s.messages.at(-1);
-  assert.equal(last.text, "Hallo <b>Gruppe</b>"); assert.equal(last.name, "Kai"); assert.equal(last.member_id, s.me.id);
+  assert.equal(last.text, "Hallo <b>Gruppe</b>"); assert.equal(last.name, "Kai"); assert.equal(last.member_id, s.me.id); assert.equal(last.attachment, null);
   await fails(rpc(db, "api_message", { p_token: K, p_text: "   " }), 400);
+  const s2 = await rpc(db, "api_message", { p_token: K, p_text: "", p_attachment: "2026-10-28/0123456789abcdef0123.jpg" });
+  assert.equal(s2.messages.at(-1).attachment, "2026-10-28/0123456789abcdef0123.jpg"); assert.equal(s2.messages.at(-1).text, "");
+  await fails(rpc(db, "api_message", { p_token: K, p_text: "x", p_attachment: "../etc/passwd" }), 400);
+  await fails(rpc(db, "api_message", { p_token: K, p_text: "x", p_attachment: "2026-10-28/abc.png" }), 400);
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-10-28-update-fotos.sql", import.meta.url), "utf8"));
+  assert.equal((await rpc(db, "api_state", { p_token: K })).messages.at(-1).attachment, "2026-10-28/0123456789abcdef0123.jpg");
 });
 
 test("jelly: Meldung je Bucht mit Name, Validierung", async () => {

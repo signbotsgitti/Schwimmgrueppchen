@@ -1,5 +1,5 @@
 // Service Worker: App-Shell offline verfügbar; Daten hält die App selbst in localStorage.
-const VERSION = "v2.7.0";
+const VERSION = "v2.8.0";
 const BASE = self.registration.scope; // z. B. https://user.github.io/Schwimmgrueppchen/
 const SHELL = ["", "index.html", "app.js", "i18n.js", "styles.css", "manifest.webmanifest", "supabase-config.js",
   "help.js", "lib/config.js", "lib/ampel.js", "lib/time.js", "lib/weather.js", "lib/xlsx.js",

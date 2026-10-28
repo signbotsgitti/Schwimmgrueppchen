@@ -1,10 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.7.0";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.7.0";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.7.0";
-import { loadWeather } from "./lib/weather.js?v=2.7.0";
-import { buildXlsx } from "./lib/xlsx.js?v=2.7.0";
-import { renderHelp } from "./help.js?v=2.7.0";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.8.0";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.8.0";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.8.0";
+import { loadWeather } from "./lib/weather.js?v=2.8.0";
+import { buildXlsx } from "./lib/xlsx.js?v=2.8.0";
+import { renderHelp } from "./help.js?v=2.8.0";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -51,6 +51,36 @@ async function rpc(fn, params = {}) {
   return data;
 }
 const baseUrl = () => location.origin + location.pathname.replace(/[^/]*$/, "");
+const STORAGE_BUCKET = "pinnwand";
+const photoUrl = (path) => `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+
+/** Bild im Browser verkleinern (max. Kante maxPx) und als JPEG-Blob liefern. */
+async function compressImage(file, maxPx = 1280, quality = 0.82) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch { bmp = await new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = URL.createObjectURL(file); }); }
+  const w = bmp.width, h = bmp.height, scale = Math.min(1, maxPx / Math.max(w, h));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+  canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
+  if (!blob) throw new Error("Bild konnte nicht verarbeitet werden");
+  return blob;
+}
+
+/** Lädt ein JPEG in den Bucket hoch; Pfad = Tag/zufall.jpg (passt zur Prüfung in SQL und Storage-Policy). */
+async function uploadPhoto(blob) {
+  const rnd = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const path = `${S.state?.today ?? new Date().toISOString().slice(0, 10)}/${rnd}.jpg`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "image/jpeg", "x-upsert": "false", "Cache-Control": "max-age=31536000" },
+    body: blob,
+  });
+  if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || d.error || `Upload HTTP ${res.status}`); }
+  return path;
+}
+
 const defTime = () => S.state?.defaults?.time ?? DEFAULT_MEET_TIME;
 const defBay = () => S.state?.defaults?.bay ?? DEFAULT_BAY;
 const linkFor = (tok) => `${baseUrl()}?u=${tok}`;
@@ -203,6 +233,13 @@ function render() {
     return;
   }
   renderToday(); renderBoard(); renderStats(); renderMore();
+}
+
+function openLightbox(src) {
+  const box = document.createElement("div"); box.className = "lightbox";
+  box.innerHTML = `<img src="${esc(src)}" alt=""><a class="btn sm" href="${esc(src)}" target="_blank" rel="noopener">↗︎</a>`;
+  box.addEventListener("click", (e) => { if (e.target.tagName !== "A") box.remove(); });
+  document.body.appendChild(box);
 }
 
 // ---------- Statistik ----------
@@ -435,15 +472,35 @@ function renderBoard() {
   const msgs = st.messages.length === 0 ? `<p class="muted center">${t("boardEmpty")}</p>` :
     `<div class="msgs">${st.messages.map((m) => m.kind === "system"
       ? `<div class="msg system"><div class="meta">${fmtDateTime(new Date(m.created_at).getTime())}</div><div class="text">${esc(systemText(m.text))}</div></div>`
-      : `<div class="msg ${m.member_id === st.me.id ? "mine" : ""}"><div class="meta">${esc(m.name ?? "?")} · ${fmtDateTime(new Date(m.created_at).getTime())}</div><div class="text">${esc(m.text)}</div></div>`
+      : `<div class="msg ${m.member_id === st.me.id ? "mine" : ""}"><div class="meta">${esc(m.name ?? "?")} · ${fmtDateTime(new Date(m.created_at).getTime())}</div>${m.attachment ? `<img class="photo" src="${esc(photoUrl(m.attachment))}" alt="" loading="lazy" data-full="${esc(photoUrl(m.attachment))}">` : ""}${m.text ? `<div class="text">${esc(m.text)}</div>` : ""}</div>`
     ).join("")}</div>`;
   $("#view-board").innerHTML = `${msgs}
-    <div class="composer"><textarea id="msg-text" rows="1" placeholder="${t("writeMessage")}" maxlength="1000"></textarea><button class="btn primary" id="msg-send">${t("send")}</button></div>`;
+    <div class="composer">
+      <input type="file" id="msg-photo" accept="image/*" hidden>
+      <button class="btn" id="msg-attach" title="${t("attachPhoto")}" aria-label="${t("attachPhoto")}">📷</button>
+      <textarea id="msg-text" rows="1" placeholder="${t("writeMessage")}" maxlength="1000"></textarea>
+      <button class="btn primary" id="msg-send">${t("send")}</button>
+    </div>`;
   $("#msg-send").addEventListener("click", async () => {
     const ta = $("#msg-text"); const text = ta.value.trim(); if (!text) return;
-    await act("api_message", { p_text: text }); ta.value = ""; markSeen();
+    ta.value = ""; ta.blur(); document.activeElement?.blur();
+    await act("api_message", { p_text: text, p_attachment: null }); markSeen();
     $("#view-board").scrollIntoView({ block: "end" });
   });
+  $("#msg-attach").addEventListener("click", () => $("#msg-photo").click());
+  $("#msg-photo").addEventListener("change", async (ev) => {
+    const file = ev.target.files?.[0]; if (!file) return;
+    const btn = $("#msg-attach"); btn.disabled = true; btn.textContent = "⏳"; toast(t("uploading"));
+    try {
+      const blob = await compressImage(file);
+      const path = await uploadPhoto(blob);
+      const ta = $("#msg-text"); const text = ta.value.trim();
+      ta.value = ""; ta.blur(); document.activeElement?.blur();
+      await act("api_message", { p_text: text, p_attachment: path }); markSeen();
+    } catch (e) { toast(`${t("attachFailed")}: ${e.message}`); render(); }
+    ev.target.value = "";
+  });
+  $("#view-board").querySelectorAll("img.photo").forEach((img) => img.addEventListener("click", () => openLightbox(img.dataset.full)));
   if (S.view === "board") markSeen();
 }
 

@@ -1,7 +1,7 @@
 // Lokaler Dev-Server ohne Supabase: statische Dateien aus public/ + RPC-Endpunkte wie PostgREST auf PGlite.
 // Start: node scripts/dev-server.mjs [port]   -> http://localhost:8788/?u=<token aus handover/*-links.md>
 import { createServer } from "node:http";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 
@@ -39,6 +39,22 @@ createServer(async (req, res) => {
     return send(status, JSON.stringify(body));
   }
   if (url.pathname === "/supabase-config.js") return send(200, 'export const SUPABASE_URL = ""; export const SUPABASE_ANON_KEY = "dev";', MIME[".js"]);
+  // Storage-Emulation (Bucket pinnwand) im Ordner .dev-storage/
+  const STORE = new URL("../.dev-storage/", import.meta.url).pathname;
+  if (url.pathname.startsWith("/storage/v1/object/pinnwand/") && req.method === "POST") {
+    const rel = url.pathname.slice("/storage/v1/object/pinnwand/".length);
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}\/[0-9a-f]{16,40}\.jpg$/.test(rel) || req.headers["content-type"] !== "image/jpeg") return send(400, JSON.stringify({ message: "policy violation" }));
+    const chunks = []; for await (const c of req) chunks.push(c); const buf = Buffer.concat(chunks);
+    if (buf.length > 2 * 1024 * 1024) return send(413, JSON.stringify({ message: "too large" }));
+    mkdirSync(join(STORE, rel.split("/")[0]), { recursive: true }); writeFileSync(join(STORE, rel), buf);
+    console.log(`POST storage ${rel} ${buf.length} bytes`);
+    return send(200, JSON.stringify({ Key: `pinnwand/${rel}` }));
+  }
+  if (url.pathname.startsWith("/storage/v1/object/public/pinnwand/")) {
+    const f = join(STORE, url.pathname.slice("/storage/v1/object/public/pinnwand/".length));
+    if (!f.startsWith(STORE) || !existsSync(f)) return send(404, "not found", "text/plain");
+    return send(200, readFileSync(f), "image/jpeg");
+  }
   let file = normalize(join(ROOT, decodeURIComponent(url.pathname)));
   if (!file.startsWith(ROOT)) return send(403, "forbidden", "text/plain");
   if (file.endsWith("/")) file += "index.html";

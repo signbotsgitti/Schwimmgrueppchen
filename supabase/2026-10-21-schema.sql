@@ -46,8 +46,10 @@ create table if not exists public.messages (
   member_id   bigint references public.members(id),
   kind        text not null default 'msg' check (kind in ('msg','system')),
   text        text not null,
+  attachment  text,                                  -- Pfad im Storage-Bucket "pinnwand" (JPEG)
   created_at  timestamptz not null default now()
 );
+alter table public.messages add column if not exists attachment text;
 
 create table if not exists public.jelly_reports (
   id          bigint generated always as identity primary key,
@@ -155,7 +157,7 @@ begin
     'defaults', jsonb_build_object('time', public.app_default_meet_time(), 'bay', public.app_default_bay()),
     'messages', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.id) from (
-        select msg.id, msg.kind, msg.text, msg.created_at, msg.member_id, m.name
+        select msg.id, msg.kind, msg.text, msg.attachment, msg.created_at, msg.member_id, m.name
         from public.messages msg left join public.members m on m.id = msg.member_id
         order by msg.id desc limit 100) x), '[]'::jsonb),
     'jelly', coalesce((
@@ -241,12 +243,16 @@ begin
   return public.app_state(me);
 end $$;
 
-create or replace function public.api_message(p_token text, p_text text) returns jsonb
+drop function if exists public.api_message(text, text);
+create or replace function public.api_message(p_token text, p_text text, p_attachment text default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare me public.members := public.app_me(p_token); t text := public.app_clean(p_text, 1000);
 begin
-  if length(t) = 0 then raise exception 'Leere Nachricht' using errcode = 'PT400'; end if;
-  insert into public.messages (member_id, kind, text) values (me.id, 'msg', t);
+  if p_attachment is not null and p_attachment !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f]{16,40}\.jpg$' then
+    raise exception 'Ungültiger Anhang' using errcode = 'PT400';
+  end if;
+  if length(t) = 0 and p_attachment is null then raise exception 'Leere Nachricht' using errcode = 'PT400'; end if;
+  insert into public.messages (member_id, kind, text, attachment) values (me.id, 'msg', t, p_attachment);
   return public.app_state(me);
 end $$;
 
@@ -363,7 +369,25 @@ end $$;
 revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function
   public.api_state(text), public.api_attendance(text, text), public.api_time(text, text), public.api_bay(text, text),
-  public.api_message(text, text), public.api_jelly(text, text), public.api_invite(text, text, text),
+  public.api_message(text, text, text), public.api_jelly(text, text), public.api_invite(text, text, text),
   public.api_me(text, text), public.api_history(text, int), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text),
   public.api_admin_attendance(text, bigint, text, text), public.api_admin_settings(text, text, text)
 to anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- Storage: Bucket "pinnwand" für Fotos (öffentlich lesbar, Upload nur JPEG bis 2 MB)
+-- Läuft nur in Supabase (Schema storage); in Tests ohne Storage wird der Block übersprungen.
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema = 'storage' and table_name = 'buckets') then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('pinnwand', 'pinnwand', true, 2097152, array['image/jpeg'])
+    on conflict (id) do update set public = true, file_size_limit = 2097152, allowed_mime_types = array['image/jpeg'];
+    drop policy if exists "pinnwand upload" on storage.objects;
+    create policy "pinnwand upload" on storage.objects for insert to anon, authenticated
+      with check (bucket_id = 'pinnwand' and name ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f]{16,40}\.jpg$');
+    drop policy if exists "pinnwand read" on storage.objects;
+    create policy "pinnwand read" on storage.objects for select to anon, authenticated using (bucket_id = 'pinnwand');
+  end if;
+end $$;

@@ -68,7 +68,7 @@ begin
     'defaults', jsonb_build_object('time', public.app_default_meet_time(), 'bay', public.app_default_bay()),
     'messages', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.id) from (
-        select msg.id, msg.kind, msg.text, msg.created_at, msg.member_id, m.name
+        select msg.id, msg.kind, msg.text, msg.attachment, msg.created_at, msg.member_id, m.name
         from public.messages msg left join public.members m on m.id = msg.member_id
         order by msg.id desc limit 100) x), '[]'::jsonb),
     'jelly', coalesce((

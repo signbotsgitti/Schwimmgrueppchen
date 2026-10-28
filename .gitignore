@@ -4,3 +4,4 @@ node_modules/
 # Generierte Seeds mit Tokens / persönliche Links nie committen
 handover/*.sql
 handover/*links*
+.dev-storage/

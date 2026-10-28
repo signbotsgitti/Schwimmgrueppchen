@@ -1,5 +1,5 @@
 // Erklärung der Quallen-Ampel, alle Zahlen kommen aus der Konfiguration.
-import { BAYS, AMPEL, THUNDER, DEFAULT_MEET_TIME } from "./lib/config.js?v=2.7.0";
+import { BAYS, AMPEL, THUNDER, DEFAULT_MEET_TIME } from "./lib/config.js?v=2.8.0";
 
 const HELP = {
   de: {
