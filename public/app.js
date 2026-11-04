@@ -1,10 +1,11 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.9.3";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.9.3";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.9.3";
-import { loadWeather } from "./lib/weather.js?v=2.9.3";
-import { buildXlsx } from "./lib/xlsx.js?v=2.9.3";
-import { renderHelp } from "./help.js?v=2.9.3";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.10.0";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.10.0";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.10.0";
+import { loadWeather } from "./lib/weather.js?v=2.10.0";
+import { localParts } from "./lib/time.js?v=2.10.0";
+import { buildXlsx } from "./lib/xlsx.js?v=2.10.0";
+import { renderHelp } from "./help.js?v=2.10.0";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -236,6 +237,36 @@ function render() {
   renderToday(); renderBoard(); renderStats(); renderMore();
 }
 
+/**
+ * Eigene Zeitauswahl (statt nativem Rad): Stunden- und Minutenraster, Vergangenes grau und gesperrt.
+ * @param {{value:string, restrictToday:boolean, onPick:(v:string)=>void}} o
+ */
+function openTimePicker(o) {
+  const now = localParts(new Date());
+  const minutesPast = (h, m) => o.restrictToday && (h * 60 + m + 60) <= (now.hour * 60 + now.minute); // Zeit + 1 h Nachlauf vorbei
+  let [h, m] = (o.value || "16:15").split(":").map(Number); m = Math.round(m / 5) * 5 % 60;
+  const sheet = document.createElement("div"); sheet.className = "sheet-bg";
+  const draw = () => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const mins = Array.from({ length: 12 }, (_, i) => i * 5);
+    const hourOk = (x) => !minutesPast(x, 55);
+    if (!hourOk(h)) { const first = hours.find(hourOk); if (first != null) h = first; }
+    if (minutesPast(h, m)) { const fm = mins.find((x) => !minutesPast(h, x)); if (fm != null) m = fm; }
+    sheet.innerHTML = `<div class="sheet" role="dialog">
+      <div class="sheet-head"><span>${t("changeTime")}</span><strong>${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}</strong></div>
+      <div class="tgrid hours">${hours.map((x) => `<button class="tcell ${x === h ? "sel" : ""}" data-h="${x}" ${hourOk(x) ? "" : "disabled"}>${String(x).padStart(2, "0")}</button>`).join("")}</div>
+      <div class="tgrid mins">${mins.map((x) => `<button class="tcell ${x === m ? "sel" : ""}" data-m="${x}" ${minutesPast(h, x) ? "disabled" : ""}>${String(x).padStart(2, "0")}</button>`).join("")}</div>
+      <div class="row spread" style="margin-top:10px"><button class="btn" id="tp-cancel">${t("cancel")}</button><button class="btn primary" id="tp-ok">✓</button></div>
+    </div>`;
+    sheet.querySelectorAll("[data-h]").forEach((b) => b.addEventListener("click", () => { h = Number(b.dataset.h); draw(); }));
+    sheet.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { m = Number(b.dataset.m); draw(); }));
+    sheet.querySelector("#tp-cancel").addEventListener("click", () => sheet.remove());
+    sheet.querySelector("#tp-ok").addEventListener("click", () => { sheet.remove(); o.onPick(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`); });
+  };
+  sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.remove(); });
+  draw(); document.body.appendChild(sheet);
+}
+
 function openLightbox(src) {
   const box = document.createElement("div"); box.className = "lightbox";
   box.innerHTML = `<img src="${esc(src)}" alt=""><a class="btn sm" href="${esc(src)}" target="_blank" rel="noopener">↗︎</a>`;
@@ -377,7 +408,7 @@ function renderToday() {
     ${stamp}
     ${isTomorrow ? `<div class="warn small">${t("nextDayHint")}
       <div class="row" style="margin-top:6px"><span>${t("todayWas", { bay: bayName(st.todayMeet?.bay ?? defBay()), time: st.todayMeet?.time ?? defTime() })}</span></div>
-      <div class="row" style="margin-top:6px"><label class="picker small">${t("fixToday")} <input type="time" id="fix-today-time" step="300"></label></div>
+      <div class="row" style="margin-top:6px"><button class="btn sm" id="fix-today-time">⏰ ${t("fixToday")}</button></div>
     </div>` : ""}
     <div class="card">
       <h2>${t("meetAt")} <span class="daylabel">${isTomorrow ? t("dayTomorrow") : t("dayToday")} · ${fmtDay(st.day)}</span></h2>
@@ -386,7 +417,7 @@ function renderToday() {
         <label class="picker">📍 <select id="meet-bay" aria-label="${t("changeBay")}">
           ${BAYS.map((b) => `<option value="${b.id}" ${b.id === meetBayId ? "selected" : ""}>${esc(b.name)}</option>`).join("")}
         </select></label>
-        <label class="picker">⏰ <input type="time" id="meet-time" value="${esc(meetTime)}" step="300" aria-label="${t("changeTime")}"></label>
+        <button class="picker timebtn" id="meet-time" aria-label="${t("changeTime")}">⏰ <span>${esc(meetTime)}</span></button>
       </div>
       ${st.meet.bayBy || st.meet.proposedBy ? `<p class="muted small">${[
         st.meet.bayBy ? `${esc(meetBay)}: ${t("proposedBy")} ${esc(st.meet.bayBy)}` : "",
@@ -409,20 +440,15 @@ function renderToday() {
     await act("api_admin_attendance", { p_member_id: Number(b.dataset.admAtt), p_status: next, p_day: null });
     S.history = null; toast(`${t("statusChanged")}: ${statusLabel(next)}`);
   }));
-  // Zeit-Rad: iOS feuert "change" bei jedem Absetzen des Fingers. Gespeichert wird deshalb erst, wenn das Rad
-  // geschlossen wird (Haken bzw. Verlassen des Feldes = blur), und nur, wenn sich der Wert geändert hat.
-  const timeInput = $("#meet-time");
-  timeInput?.addEventListener("blur", async () => {
-    const v = timeInput.value;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v) || v === meetTime) { timeInput.value = meetTime; return; }
+  $("#meet-time")?.addEventListener("click", () => openTimePicker({ value: meetTime, restrictToday: !isTomorrow, onPick: async (v) => {
+    if (v === meetTime) return;
     try { const data = await rpc("api_time", { p_time: v, p_day: null }); if (data?.members) setState(data); render(); toast(`⏰ ${v}`); }
     catch (e) { render(); toast(e.status === 409 ? t("timePast") : `${t("error")}: ${e.message}`); }
-  });
-  $("#fix-today-time")?.addEventListener("blur", async (ev) => {
-    const v = ev.target.value; if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return;
+  } }));
+  $("#fix-today-time")?.addEventListener("click", () => openTimePicker({ value: defTime(), restrictToday: true, onPick: async (v) => {
     try { const data = await rpc("api_time", { p_time: v, p_day: "today" }); if (data?.members) setState(data); render(); refreshWeather(true); toast(`⏰ ${v}`); }
     catch (e) { toast(e.status === 409 ? t("timePast") : `${t("error")}: ${e.message}`); }
-  });
+  } }));
   $("#meet-bay")?.addEventListener("change", async (ev) => {
     const v = ev.target.value;
     if (v === meetBayId) return;
@@ -542,7 +568,7 @@ function renderMore() {
       <p class="muted small">${t("defaultsHint")}</p>
       <div class="pickers">
         <label class="picker">📍 <select id="def-bay">${BAYS.map((b) => `<option value="${b.id}" ${b.id === defBay() ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label>
-        <label class="picker">⏰ <input type="time" id="def-time" value="${esc(defTime())}" step="300"></label>
+        <button class="picker timebtn" id="def-time" data-value="${esc(defTime())}">⏰ <span>${esc(defTime())}</span></button>
       </div>
       <div class="row" style="margin-top:8px"><button class="btn primary" id="def-save">${t("save")}</button></div>
     </div>
@@ -584,8 +610,9 @@ function renderMore() {
   });
   $("#inv-copy")?.addEventListener("click", () => copy(S.invite.link));
   $("#adm-load")?.addEventListener("click", loadAdmin);
+  $("#def-time")?.addEventListener("click", () => openTimePicker({ value: $("#def-time").dataset.value, restrictToday: false, onPick: (v) => { const b = $("#def-time"); b.dataset.value = v; b.querySelector("span").textContent = v; } }));
   $("#def-save")?.addEventListener("click", async () => {
-    const time = $("#def-time").value, bay = $("#def-bay").value;
+    const time = $("#def-time").dataset.value, bay = $("#def-bay").value;
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { toast("HH:MM"); return; }
     document.activeElement?.blur();
     await act("api_admin_settings", { p_time: time, p_bay: bay }); toast(`✓ ${bayName(bay)} · ${time}`);

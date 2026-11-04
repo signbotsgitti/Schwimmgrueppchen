@@ -1,4 +1,4 @@
-import { TIMEZONE } from "./config.js?v=2.9.3";
+import { TIMEZONE } from "./config.js?v=2.10.0";
 
 /** Liefert Datum/Uhrzeit-Teile in Europe/Madrid. */
 export function localParts(date = new Date(), tz = TIMEZONE) {
