@@ -1,10 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.9.1";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.9.1";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.9.1";
-import { loadWeather } from "./lib/weather.js?v=2.9.1";
-import { buildXlsx } from "./lib/xlsx.js?v=2.9.1";
-import { renderHelp } from "./help.js?v=2.9.1";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.9.2";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.9.2";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.9.2";
+import { loadWeather } from "./lib/weather.js?v=2.9.2";
+import { buildXlsx } from "./lib/xlsx.js?v=2.9.2";
+import { renderHelp } from "./help.js?v=2.9.2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -34,6 +34,7 @@ const S = {
   lastSeenMsg: LS.get("lastSeenMsg", 0),
   invite: null, admin: null, adminOpen: false,
   history: null, historyDays: LS.get("historyDays", 90), historyLoading: false,
+  boardScrollPending: false, boardLastCount: -1,
 };
 let t = makeT(S.lang);
 
@@ -499,8 +500,8 @@ function renderBoard() {
   $("#msg-send").addEventListener("click", async () => {
     const ta = $("#msg-text"); const text = ta.value.trim(); if (!text) return;
     ta.value = ""; ta.blur(); document.activeElement?.blur();
+    S.boardScrollPending = true;
     await act("api_message", { p_text: text, p_attachment: null }); markSeen();
-    $("#view-board").scrollIntoView({ block: "end" });
   });
   $("#msg-attach").addEventListener("click", () => $("#msg-photo").click());
   $("#msg-photo").addEventListener("change", async (ev) => {
@@ -510,13 +511,21 @@ function renderBoard() {
       const blob = await compressImage(file);
       const path = await uploadPhoto(blob);
       const ta = $("#msg-text"); const text = ta.value.trim();
-      ta.value = ""; ta.blur(); document.activeElement?.blur();
+      ta.value = ""; ta.blur(); document.activeElement?.blur(); S.boardScrollPending = true;
       await act("api_message", { p_text: text, p_attachment: path }); markSeen();
     } catch (e) { toast(`${t("attachFailed")}: ${e.message}`); render(); }
     ev.target.value = "";
   });
   $("#view-board").querySelectorAll("img.photo").forEach((img) => img.addEventListener("click", () => openLightbox(img.dataset.full)));
-  if (S.view === "board") markSeen();
+  if (S.view === "board") {
+    markSeen();
+    // Neueste Nachricht zeigen: beim Öffnen des Tabs und wenn Nachrichten dazukommen
+    const count = st.messages.length;
+    if (S.boardScrollPending || count !== S.boardLastCount) {
+      S.boardScrollPending = false; S.boardLastCount = count;
+      requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" }));
+    }
+  }
 }
 
 function renderLangCard() {
@@ -601,8 +610,8 @@ async function loadAdmin() {
 
 // ---------- Navigation / Lifecycle ----------
 document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
-  S.view = b.dataset.view; render();
-  if (S.view === "board") markSeen();
+  S.view = b.dataset.view; window.scrollTo(0, 0); render();
+  if (S.view === "board") { S.boardScrollPending = true; markSeen(); render(); }
   if (S.view === "stats") loadHistory();
   if (S.view === "more" && S.state?.me?.isAdmin && !S.admin) loadAdmin();
 }));
