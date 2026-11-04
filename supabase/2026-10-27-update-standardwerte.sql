@@ -34,13 +34,14 @@ create or replace function public.app_state(me public.members) returns jsonb
 language plpgsql stable as $$
 declare
   d date := public.app_target_day();
-  v_time text; v_time_by text; v_bay text; v_bay_by text;
+  v_time text; v_time_by text; v_bay text; v_bay_by text; t_time text; t_bay text;
 begin
   select ds.meet_time, mt.name, ds.meet_bay, mb.name into v_time, v_time_by, v_bay, v_bay_by
     from public.day_settings ds
     left join public.members mt on mt.id = ds.proposed_by
     left join public.members mb on mb.id = ds.bay_by
     where ds.day = d;
+  select ds.meet_time, ds.meet_bay into t_time, t_bay from public.day_settings ds where ds.day = public.app_today();
   return jsonb_build_object(
     'day', to_char(d, 'YYYY-MM-DD'),
     'today', to_char(public.app_today(), 'YYYY-MM-DD'),
@@ -53,6 +54,7 @@ begin
       where m.active), '[]'::jsonb),
     'meet', jsonb_build_object('time', v_time, 'proposedBy', v_time_by, 'bay', v_bay, 'bayBy', v_bay_by),
     'defaults', jsonb_build_object('time', public.app_default_meet_time(), 'bay', public.app_default_bay()),
+    'todayMeet', jsonb_build_object('time', t_time, 'bay', t_bay),
     'messages', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.id) from (
         select msg.id, msg.kind, msg.text, msg.attachment, msg.created_at, msg.member_id, m.name

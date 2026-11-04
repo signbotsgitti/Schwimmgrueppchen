@@ -136,13 +136,14 @@ create or replace function public.app_state(me public.members) returns jsonb
 language plpgsql stable as $$
 declare
   d date := public.app_target_day();
-  v_time text; v_time_by text; v_bay text; v_bay_by text;
+  v_time text; v_time_by text; v_bay text; v_bay_by text; t_time text; t_bay text;
 begin
   select ds.meet_time, mt.name, ds.meet_bay, mb.name into v_time, v_time_by, v_bay, v_bay_by
     from public.day_settings ds
     left join public.members mt on mt.id = ds.proposed_by
     left join public.members mb on mb.id = ds.bay_by
     where ds.day = d;
+  select ds.meet_time, ds.meet_bay into t_time, t_bay from public.day_settings ds where ds.day = public.app_today();
   return jsonb_build_object(
     'day', to_char(d, 'YYYY-MM-DD'),
     'today', to_char(public.app_today(), 'YYYY-MM-DD'),
@@ -155,6 +156,7 @@ begin
       where m.active), '[]'::jsonb),
     'meet', jsonb_build_object('time', v_time, 'proposedBy', v_time_by, 'bay', v_bay, 'bayBy', v_bay_by),
     'defaults', jsonb_build_object('time', public.app_default_meet_time(), 'bay', public.app_default_bay()),
+    'todayMeet', jsonb_build_object('time', t_time, 'bay', t_bay),
     'messages', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.id) from (
         select msg.id, msg.kind, msg.text, msg.attachment, msg.created_at, msg.member_id, m.name
@@ -219,12 +221,23 @@ begin
   return public.app_state(me);
 end $$;
 
-create or replace function public.api_time(p_token text, p_time text) returns jsonb
+-- Uhrzeit vorschlagen. p_day: null = Zieltag; 'today' erlaubt die Korrektur der heutigen Zeit aus dem Morgen-Modus.
+-- Schutz: Für heute darf keine Zeit gesetzt werden, deren Stunde Nachlauf schon vorbei ist, sonst springt die App
+-- sofort auf morgen und alle weiteren Eingaben landen am falschen Tag.
+drop function if exists public.api_time(text, text);
+create or replace function public.api_time(p_token text, p_time text, p_day text default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare me public.members := public.app_me(p_token); d date := public.app_target_day();
+declare
+  me public.members := public.app_me(p_token);
+  today date := public.app_today();
+  d date := case when p_day = 'today' then today else public.app_target_day() end;
+  now_local timestamp := now() at time zone 'Europe/Madrid';
 begin
   if p_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
     raise exception 'time muss HH:MM sein' using errcode = 'PT400';
+  end if;
+  if d = today and now_local >= (d + p_time::time + interval '1 hour') then
+    raise exception 'Uhrzeit liegt bereits in der Vergangenheit' using errcode = 'PT409';
   end if;
   insert into public.day_settings (day, meet_time, proposed_by) values (d, p_time, me.id)
   on conflict (day) do update set meet_time = excluded.meet_time, proposed_by = excluded.proposed_by, updated_at = now();
@@ -368,7 +381,7 @@ end $$;
 -- ---------------------------------------------------------------------
 revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function
-  public.api_state(text), public.api_attendance(text, text), public.api_time(text, text), public.api_bay(text, text),
+  public.api_state(text), public.api_attendance(text, text), public.api_time(text, text, text), public.api_bay(text, text),
   public.api_message(text, text, text), public.api_jelly(text, text), public.api_invite(text, text, text),
   public.api_me(text, text), public.api_history(text, int), public.api_admin_members(text), public.api_admin_action(text, bigint, text, text),
   public.api_admin_attendance(text, bigint, text, text), public.api_admin_settings(text, text, text)

@@ -26,6 +26,7 @@
 - Tests: 21 Ampel + 11 SQL-API auf PGlite (Postgres in WASM), GitHub Actions führt sie vor jedem Deploy aus
 
 ## Entscheidungen
+- 2026-11-04 Fehler behoben: Eine für heute gesetzte Uhrzeit, deren Stunde Nachlauf schon vorbei war, ließ die App sofort auf morgen springen; alle Folgeeingaben landeten am Folgetag. Jetzt lehnt `api_time` solche Zeiten ab (PT409) und erlaubt mit `p_day = 'today'` die Korrektur der heutigen Zeit aus dem Morgen-Modus; `app_state` liefert `todayMeet`.
 - 2026-10-22 Ampel gegen Quallen-Zusammenfassung (Mittelmeer) abgeglichen: Abklingen jetzt zweistufig (ablandiger Wind 4 h/Stufe, Flaute 12 h/Stufe), Starkwind-Hinweis ab 40 km/h auflandig in den letzten 12 h. Stufen 12/24/48 h und 10 km/h bestätigt.
 - Supabase statt Cloudflare: vorhandenes Konto. Konsequenz: Backend in SQL statt JavaScript, Wetterabruf in den Browser verlegt.
 - RPC-Funktionen statt Edge Functions: kein CLI, kein Deploy-Schritt, eine SQL-Datei im Editor genügt. Nachteil: Logik in plpgsql, dafür mit Tests abgedeckt.
@@ -41,7 +42,8 @@
 - [x] Historie-Update ausgeführt (komplettes Schema erneut eingespielt)
 - [x] Status „Überraschung“ und Admin-Nachtrag eingespielt
 - [x] Standardwerte-Update eingespielt
-- [ ] `supabase/2026-10-28-update-fotos.sql` oder komplettes Schema ausführen (Fotos: Spalte, Bucket, Policies)
+- [x] Foto-Update eingespielt
+- [ ] `supabase/2026-11-04-update-zeitschutz.sql` oder komplettes Schema ausführen (Schutz vor Tageswechsel, Korrektur heutiger Zeit)
 - [x] Windsektoren nach Ortskenntnis gesetzt (2026-10-22): Mesquida E, Alcaufar SE, Binisafúa S, Son Bou S–W
 - [ ] Open-Meteo live prüfen (aus der Entwicklungsumgebung gesperrt; lokal nur gemockt)
 - [ ] Nach erstem Betrieb Schwellen (12/24/48 h, 10 km/h, Abklingen 4/12 h) mit Erfahrung abgleichen
@@ -50,7 +52,7 @@
 ## Pfade
 - Frontend: `public/index.html`, `public/app.js`, `public/i18n.js`, `public/styles.css`, `public/sw.js`, `public/manifest.webmanifest`, `public/supabase-config.js`
 - Logik/Konfig: `public/lib/config.js`, `public/lib/ampel.js`, `public/lib/weather.js`, `public/lib/time.js`
-- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`, `supabase/2026-10-21-update-historie.sql`, `supabase/2026-10-21-update-ueberraschung.sql`, `supabase/2026-10-27-update-standardwerte.sql`, `supabase/2026-10-28-update-fotos.sql`
+- Backend: `supabase/2026-10-21-schema.sql`, Updates: `supabase/2026-10-21-update-franzoesisch.sql`, `supabase/2026-10-21-update-bucht.sql`, `supabase/2026-10-21-update-historie.sql`, `supabase/2026-10-21-update-ueberraschung.sql`, `supabase/2026-10-27-update-standardwerte.sql`, `supabase/2026-10-28-update-fotos.sql`, `supabase/2026-11-04-update-zeitschutz.sql`
 - Skripte: `scripts/seed.mjs`, `scripts/dev-server.mjs`, `scripts/make-icons.mjs`, `scripts/weather-mock.mjs`
 - Tests: `test/ampel.test.mjs`, `test/api.test.mjs`, `test/_pg.mjs`
 - CI/Deploy: `.github/workflows/pages.yml`

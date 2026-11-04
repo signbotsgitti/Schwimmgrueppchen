@@ -48,20 +48,35 @@ test("attendance: yes/away/open, Validierung", async () => {
   await fails(rpc(db, "api_attendance", { p_token: M, p_status: "perhaps" }), 400);
 });
 
-test("time: Vorschlag mit Name + Systemnachricht, Validierung", async () => {
-  const s = await rpc(db, "api_time", { p_token: M, p_time: "17:00" });
-  assert.equal(s.meet.time, "17:00"); assert.equal(s.meet.proposedBy, "Monika");
-  assert.equal(s.messages.at(-1).kind, "system"); assert.equal(s.messages.at(-1).text, "⏰ Monika: 17:00");
+test("time: Vorschlag mit Name + Systemnachricht, Validierung, Schutz vor Vergangenheit", async () => {
+  // Zieltag kann heute oder morgen sein: eine Zeit wählen, die für heute sicher noch nicht vorbei ist
+  const { h } = (await db.query("select extract(hour from now() at time zone 'Europe/Madrid')::int as h")).rows[0];
+  const future = h <= 21 ? `${String(h + 2).padStart(2, "0")}:00` : null;
+  const s = await rpc(db, "api_time", { p_token: M, p_time: future ?? "23:59" });
+  assert.equal(s.meet.time, future ?? "23:59"); assert.equal(s.meet.proposedBy, "Monika");
+  assert.equal(s.messages.at(-1).kind, "system");
   await fails(rpc(db, "api_time", { p_token: M, p_time: "25:00" }), 400, /HH:MM/);
+  // Für heute: Zeit, deren Stunde Nachlauf vorbei ist, wird abgelehnt (frühestens ab 01:00 Uhr testbar)
+  if (h >= 1) await fails(rpc(db, "api_time", { p_token: M, p_time: "00:00", p_day: "today" }), 409, /Vergangenheit/);
+  // Für heute korrigieren mit Zukunftszeit geht; danach ist der Zieltag heute
+  if (future) {
+    const s2 = await rpc(db, "api_time", { p_token: K, p_time: future, p_day: "today" });
+    assert.equal(s2.day, s2.today); assert.equal(s2.meet.time, future);
+    assert.equal(s2.todayMeet.time, future);
+  }
+  // Für die späteren Tests eine feste Zeit auf dem Zieltag setzen
+  await rpc(db, "api_time", { p_token: M, p_time: future ?? "23:59" });
+  const { readFileSync } = await import("node:fs");
+  await db.exec(readFileSync(new URL("../supabase/2026-11-04-update-zeitschutz.sql", import.meta.url), "utf8"));
 });
 
 test("bay: Bucht für heute vorschlagen, Uhrzeit bleibt erhalten, Validierung, Update-Skript läuft", async () => {
   let s = await rpc(db, "api_bay", { p_token: K, p_bay: "sonbou" });
   assert.equal(s.meet.bay, "sonbou"); assert.equal(s.meet.bayBy, "Kai");
-  assert.equal(s.meet.time, "17:00"); assert.equal(s.meet.proposedBy, "Monika");
+  assert.match(s.meet.time, /^\d\d:\d\d$/); assert.equal(s.meet.proposedBy, "Monika");
   assert.equal(s.messages.at(-1).text, "📍 Kai: sonbou");
-  s = await rpc(db, "api_time", { p_token: K, p_time: "16:45" });
-  assert.equal(s.meet.bay, "sonbou"); assert.equal(s.meet.time, "16:45"); assert.equal(s.meet.proposedBy, "Kai");
+  s = await rpc(db, "api_time", { p_token: K, p_time: "23:55" });
+  assert.equal(s.meet.bay, "sonbou"); assert.equal(s.meet.time, "23:55"); assert.equal(s.meet.proposedBy, "Kai");
   await fails(rpc(db, "api_bay", { p_token: K, p_bay: "Cala X!" }), 400);
   const { readFileSync } = await import("node:fs");
   await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-bucht.sql", import.meta.url), "utf8"));
@@ -89,7 +104,7 @@ test("history: Tage mit Einträgen, Mitglieder, Zeitraum; Update-Skript läuft",
   assert.match(h.from, /^\d{4}-\d{2}-\d{2}$/); assert.ok(h.to >= h.from);
   assert.ok(h.members.some((m) => m.name === "Kai"));
   const dayWithKai = h.days.find((d) => d.entries.some((e) => e.m === 1 && e.s === "yes"));
-  if (dayWithKai) { assert.equal(dayWithKai.bay, "sonbou"); assert.equal(dayWithKai.time, "16:45"); }
+  if (dayWithKai) { assert.equal(dayWithKai.bay, "sonbou"); assert.equal(dayWithKai.time, "23:55"); }
   const { readFileSync } = await import("node:fs");
   await db.exec(readFileSync(new URL("../supabase/2026-10-21-update-historie.sql", import.meta.url), "utf8"));
   assert.equal((await rpc(db, "api_history", { p_token: M, p_days: 30 })).members.length, h.members.length);
