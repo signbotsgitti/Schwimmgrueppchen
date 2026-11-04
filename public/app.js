@@ -1,10 +1,10 @@
 // Schwimmgrüppchen – Frontend (ohne Framework, ES-Module). Backend: Supabase-RPC, Wetter: Open-Meteo direkt.
-import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.9.2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.9.2";
-import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.9.2";
-import { loadWeather } from "./lib/weather.js?v=2.9.2";
-import { buildXlsx } from "./lib/xlsx.js?v=2.9.2";
-import { renderHelp } from "./help.js?v=2.9.2";
+import { STRINGS, makeT, LANGS } from "./i18n.js?v=2.9.3";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js?v=2.9.3";
+import { BAYS, DEFAULT_MEET_TIME, DEFAULT_BAY, ISLAND_BOUNDS, WEATHER_REFRESH_MINUTES } from "./lib/config.js?v=2.9.3";
+import { loadWeather } from "./lib/weather.js?v=2.9.3";
+import { buildXlsx } from "./lib/xlsx.js?v=2.9.3";
+import { renderHelp } from "./help.js?v=2.9.3";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const LS = {
@@ -377,7 +377,7 @@ function renderToday() {
     ${stamp}
     ${isTomorrow ? `<div class="warn small">${t("nextDayHint")}
       <div class="row" style="margin-top:6px"><span>${t("todayWas", { bay: bayName(st.todayMeet?.bay ?? defBay()), time: st.todayMeet?.time ?? defTime() })}</span></div>
-      <div class="row" style="margin-top:6px"><label class="picker small">${t("fixToday")} <input type="time" id="fix-today-time" step="300"></label><button class="btn primary sm" id="fix-today-ok">✓ ${t("apply")}</button></div>
+      <div class="row" style="margin-top:6px"><label class="picker small">${t("fixToday")} <input type="time" id="fix-today-time" step="300"></label></div>
     </div>` : ""}
     <div class="card">
       <h2>${t("meetAt")} <span class="daylabel">${isTomorrow ? t("dayTomorrow") : t("dayToday")} · ${fmtDay(st.day)}</span></h2>
@@ -388,7 +388,6 @@ function renderToday() {
         </select></label>
         <label class="picker">⏰ <input type="time" id="meet-time" value="${esc(meetTime)}" step="300" aria-label="${t("changeTime")}"></label>
       </div>
-      <div class="row" id="meet-time-confirm" hidden style="margin-top:8px"><button class="btn primary sm" id="meet-time-ok">✓ ${t("apply")}</button><button class="btn sm" id="meet-time-cancel">${t("cancel")}</button></div>
       ${st.meet.bayBy || st.meet.proposedBy ? `<p class="muted small">${[
         st.meet.bayBy ? `${esc(meetBay)}: ${t("proposedBy")} ${esc(st.meet.bayBy)}` : "",
         st.meet.proposedBy ? `${esc(meetTime)}: ${t("proposedBy")} ${esc(st.meet.proposedBy)}` : "",
@@ -410,19 +409,17 @@ function renderToday() {
     await act("api_admin_attendance", { p_member_id: Number(b.dataset.admAtt), p_status: next, p_day: null });
     S.history = null; toast(`${t("statusChanged")}: ${statusLabel(next)}`);
   }));
-  // Zeit-Rad: erst "Übernehmen" sendet (iOS feuert change bei jedem Absetzen des Fingers)
-  const timeInput = $("#meet-time"), confirmRow = $("#meet-time-confirm");
-  const showConfirm = () => { confirmRow.hidden = !(/^([01]\d|2[0-3]):[0-5]\d$/.test(timeInput.value) && timeInput.value !== meetTime); };
-  timeInput?.addEventListener("input", showConfirm); timeInput?.addEventListener("change", showConfirm);
-  $("#meet-time-cancel")?.addEventListener("click", () => { timeInput.value = meetTime; confirmRow.hidden = true; });
-  $("#meet-time-ok")?.addEventListener("click", async () => {
-    const v = timeInput.value; timeInput.blur(); document.activeElement?.blur();
+  // Zeit-Rad: iOS feuert "change" bei jedem Absetzen des Fingers. Gespeichert wird deshalb erst, wenn das Rad
+  // geschlossen wird (Haken bzw. Verlassen des Feldes = blur), und nur, wenn sich der Wert geändert hat.
+  const timeInput = $("#meet-time");
+  timeInput?.addEventListener("blur", async () => {
+    const v = timeInput.value;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v) || v === meetTime) { timeInput.value = meetTime; return; }
     try { const data = await rpc("api_time", { p_time: v, p_day: null }); if (data?.members) setState(data); render(); toast(`⏰ ${v}`); }
     catch (e) { render(); toast(e.status === 409 ? t("timePast") : `${t("error")}: ${e.message}`); }
   });
-  $("#fix-today-ok")?.addEventListener("click", async () => {
-    const inp = $("#fix-today-time"); const v = inp.value; if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) { toast("HH:MM"); return; }
-    inp.blur(); document.activeElement?.blur();
+  $("#fix-today-time")?.addEventListener("blur", async (ev) => {
+    const v = ev.target.value; if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return;
     try { const data = await rpc("api_time", { p_time: v, p_day: "today" }); if (data?.members) setState(data); render(); refreshWeather(true); toast(`⏰ ${v}`); }
     catch (e) { toast(e.status === 409 ? t("timePast") : `${t("error")}: ${e.message}`); }
   });
